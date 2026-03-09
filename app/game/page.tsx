@@ -49,62 +49,30 @@ const GamePage: React.FC = () => {
     }
   }, []);
 
-  // Winner modal countdown state
-  const [winnerCountdown, setWinnerCountdown] = useState<number>(5);
   const winnersCount = winners?.length || 0;
 
-  // Start countdown when winners appear
+  // Auto-redirect immediately when winners appear
   useEffect(() => {
-    if (winnersCount > 0) {
-      setWinnerCountdown(5);
-      const interval = setInterval(() => {
-        setWinnerCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
+    if (winnersCount > 0 && token) {
+      // Small delay to show the winner, then redirect
+      const timeout = setTimeout(() => {
+        const sanitizedToken = token.replace("}", "");
+        router.push(`/login/${sanitizedToken}`);
+      }, 3000); // 3 second delay to see winner
+      return () => clearTimeout(timeout);
     }
-  }, [winnersCount]);
+  }, [winnersCount, token, router]);
 
-  // Auto-redirect when winner countdown reaches 0
+  // Auto-redirect when "not won" notification appears
   useEffect(() => {
-    if (winnersCount > 0 && winnerCountdown === 0 && token) {
-      const sanitizedToken = token.replace("}", "");
-      router.push(`/login/${sanitizedToken}`);
+    if (notification.title === "400" && token) {
+      const timeout = setTimeout(() => {
+        const sanitizedToken = token.replace("}", "");
+        router.push(`/login/${sanitizedToken}`);
+      }, 3000); // 3 second delay
+      return () => clearTimeout(timeout);
     }
-  }, [winnerCountdown, winnersCount, token, router]);
-
-  // "Not won" modal countdown state
-  const [notWonCountdown, setNotWonCountdown] = useState<number>(5);
-
-  // Start countdown when "not won" modal appears
-  useEffect(() => {
-    if (notification.title === "400") {
-      setNotWonCountdown(5);
-      const interval = setInterval(() => {
-        setNotWonCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [notification.title]);
-
-  // Auto-redirect when "not won" countdown reaches 0
-  useEffect(() => {
-    if (notification.title === "400" && notWonCountdown === 0 && token) {
-      const sanitizedToken = token.replace("}", "");
-      router.push(`/login/${sanitizedToken}`);
-    }
-  }, [notWonCountdown, notification.title, token, router]);
+  }, [notification.title, token, router]);
 
   const refresh = () => {
     // optional soft refresh logic here
@@ -229,13 +197,6 @@ const GamePage: React.FC = () => {
                 );
               })}
             </div>
-
-            <button
-              disabled={true}
-              className="w-full mt-4 p-3 text-2xl font-bold bg-gray-500 rounded cursor-not-allowed"
-            >
-              {winnerCountdown}
-            </button>
           </div>
         </div>
       )}
@@ -256,12 +217,6 @@ const GamePage: React.FC = () => {
                 matched_to={claimResult?.matched_to}
               />
             </div>
-            <button
-              disabled={true}
-              className="w-full mt-4 p-3 text-2xl font-bold bg-gray-500 rounded cursor-not-allowed"
-            >
-              {notWonCountdown}
-            </button>
           </div>
         </div>
       )}

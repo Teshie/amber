@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useCounter } from "@/app/store/store";
 import BoardSelection from "@/app/board/page";
@@ -10,7 +10,6 @@ const ROOM_10_ID = "10"; // Room 10 ETB
 const MainGate = () => {
   const pathname = usePathname();
   const { setSockUrl } = useCounter();
-  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -28,17 +27,8 @@ const MainGate = () => {
     if (token) {
       const wsUrl = `${WS_BASE}/ws/room/${encodeURIComponent(ROOM_10_ID)}?token=${encodeURIComponent(token)}`;
       setSockUrl(wsUrl);
-      setIsConnected(true);
     }
   }, [pathname, setSockUrl]);
-
-  if (!isConnected) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-purple-400">
-        <div className="text-white text-lg">Connecting to Room 10...</div>
-      </div>
-    );
-  }
 
   return <BoardSelection />;
 };
