@@ -6,13 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCounter } from "../store/store";
 import toast from "react-hot-toast";
 
-interface BingoBoardProps {
-  wallet?: number;
-  activeGame?: number;
-  stake?: number;
-}
-
-const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
+const BingoBoard: React.FC = () => {
   const [showSecondHundred, setShowSecondHundred] = useState(false);
   const router = useRouter();
 
@@ -21,66 +15,65 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
     balance,
     roomHeaderData,
     setPlayerBoard,
-    selectedBoardNumbers,
-    resetPlayerBoards,
-    setBoardNumber,
+    userBoard,
+    userBoard2,
   } = useCounter();
 
-  // local selection (up to 2 boards)
-  const [selectedBoards, setSelectedBoards] = useState<number[]>([]);
-
   const playing = roomHeaderData?.status === "playing";
-  const stakeAmount = roomHeaderData?.stake_amount;
-  const cantPlay = (stakeAmount ?? 0) > (balance ?? 0);
+  const stakeAmount = roomHeaderData?.stake_amount ?? 0;
+  const lowBalance = stakeAmount > (balance ?? 0);
 
-  const toggleBoardSelection = (boardNumber: number) => {
-    setSelectedBoards((prev) => {
-      // If already selected, deselect it
-      if (prev.includes(boardNumber)) {
-        return prev.filter((bn) => bn !== boardNumber);
-      }
-
-      // If not selected and we have less than 2, add it
-      if (prev.length < 2) {
-        return [...prev, boardNumber];
-      }
-
-      // If we already have 2, replace the second one
-      return [prev[0], boardNumber];
-    });
-  };
-
-  const handleStartGameClick = () => {
-    // Check if any selected board is already taken
-    const hasTakenBoard = selectedBoards.some((board) =>
-      roomHeaderData?.selected_board_numbers?.includes(board)
-    );
-
-    if (hasTakenBoard) {
-      toast.error("One of the selected boards is already taken.");
+  // Handle board click - immediate selection and send to backend
+  const handleBoardClick = (boardNumber: number) => {
+    // Validation: Check balance
+    if (lowBalance) {
+      toast.error("Insufficient balance");
       return;
     }
 
-    if (selectedBoards.length === 0) {
-      toast.error("Please select at least one board first.");
+    // Validation: Check if board already taken by others
+    const isSelectedByOthers = roomHeaderData?.selected_board_numbers?.includes(boardNumber);
+    if (isSelectedByOthers) {
+      toast.error("Board already selected by another player");
       return;
     }
 
-    resetPlayerBoards();
+    // Validation: Check if game is playing
+    if (playing) {
+      toast.error("Game is already in progress");
+      return;
+    }
 
-    // Directly set all selected boards, no confirmation modal
-    selectedBoards.forEach((board, index) => {
-      const slot = (index + 1) as 1 | 2;
-      // local pending state (if needed)
-      setBoardNumber(board, slot);
-      // send exact board to backend
-      setPlayerBoard(slot, board);
-    });
-
-    router.push(`/game`);
+    // Determine which slot to use
+    if (userBoard === null || userBoard === boardNumber) {
+      // Set as first board or toggle off
+      if (userBoard === boardNumber) {
+        // Already selected by me, could implement deselect if needed
+        toast.success(`Board ${boardNumber} already selected`);
+        router.push("/game");
+        return;
+      }
+      setPlayerBoard(1, boardNumber);
+      toast.success(`Board ${boardNumber} selected!`);
+      router.push("/game");
+    } else if (userBoard2 === null || userBoard2 === boardNumber) {
+      // Set as second board
+      if (userBoard2 === boardNumber) {
+        toast.success(`Board ${boardNumber} already selected`);
+        router.push("/game");
+        return;
+      }
+      setPlayerBoard(2, boardNumber);
+      toast.success(`Board ${boardNumber} selected as 2nd board!`);
+      router.push("/game");
+    } else {
+      // Already have 2 boards
+      toast.error("You already have 2 boards selected");
+      router.push("/game");
+    }
   };
 
-  // Optional: reload when a winner is announced
+  // Reload when a winner is announced
   useEffect(() => {
     if (winner) {
       window.location.reload();
@@ -108,7 +101,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
     return () => clearInterval(interval);
   }, [futureTime]);
 
-  // helper to render a range of boards
+  // Helper to render a range of boards
   const renderBoardButtons = (start: number, end: number) => {
     return (
       <div className="grid grid-cols-10 gap-2 sm:grid-cols-5">
@@ -118,39 +111,34 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
             roomHeaderData?.selected_board_numbers?.includes(boardNumber) &&
             roomHeaderData?.status !== "playing";
 
-          const isSelectedByMe = selectedBoards.includes(boardNumber);
-          const selectionIndex = selectedBoards.indexOf(boardNumber);
-
-          const isDisabled = isSelectedByOthers && !isSelectedByMe;
+          // Check if selected by current user
+          const isSelectedByMe = userBoard === boardNumber || userBoard2 === boardNumber;
+          const slotNumber = userBoard === boardNumber ? 1 : userBoard2 === boardNumber ? 2 : 0;
 
           return (
             <button
               key={boardNumber}
-              onClick={() => {
-                if (!isDisabled) {
-                  toggleBoardSelection(boardNumber);
-                }
-              }}
-              className={`relative flex items-center justify-center w-7 h-7 text-lg font-bold rounded-md shadow-md sm:w-8 sm:h-8 ${
+              onClick={() => handleBoardClick(boardNumber)}
+              data-testid={`board-btn-${boardNumber}`}
+              className={`relative flex items-center justify-center w-7 h-7 text-lg font-bold rounded-md shadow-md sm:w-8 sm:h-8 transition-all ${
                 isSelectedByOthers
-                  ? "bg-red-500"
+                  ? "bg-red-500 cursor-not-allowed"
                   : isSelectedByMe
                   ? "bg-green-500 text-white"
-                  : "bg-purple-300"
-              } ${isDisabled ? "opacity-70 cursor-not-allowed" : ""}`}
-              disabled={isDisabled}
+                  : "bg-purple-300 hover:bg-purple-200 active:scale-95"
+              }`}
               title={
-                isDisabled
+                isSelectedByOthers
                   ? "Board already taken"
                   : isSelectedByMe
-                  ? `Selected as board ${selectionIndex + 1}`
-                  : "Select board"
+                  ? `Your board ${slotNumber}`
+                  : "Click to select"
               }
             >
               {boardNumber}
               {isSelectedByMe && (
                 <span className="absolute -top-1 -right-1 text-xs bg-black bg-opacity-50 rounded-full w-3 h-3 flex items-center justify-center">
-                  {selectionIndex + 1}
+                  {slotNumber}
                 </span>
               )}
             </button>
@@ -159,9 +147,9 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
       </div>
     );
   };
-  const isWaiting =
-    !playing &&
-    !(roomHeaderData?.status === "about_to_start" && secondsLeft > 0);
+
+  // My selected boards preview
+  const myBoards = [userBoard, userBoard2].filter((b) => b !== null) as number[];
 
   return (
     <div className="flex font-mono flex-col items-center min-h-screen bg-purple-400">
@@ -186,15 +174,21 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
             </p>
           </div>
         </div>
+        {/* Balance warning */}
+        {lowBalance && (
+          <div className="text-center text-red-200 text-sm pb-2">
+            Insufficient balance ({balance ?? 0} ETB)
+          </div>
+        )}
       </div>
 
       {/* 1–100 board buttons */}
       {renderBoardButtons(1, 100)}
 
-      {/* Preview selected boards (one or two) */}
-      {selectedBoards.length > 0 && (
-        <div className="mt-4 flex  sm:flex-row gap-4">
-          {selectedBoards.map((boardNumber) => {
+      {/* Preview my selected boards */}
+      {myBoards.length > 0 && (
+        <div className="mt-4 flex sm:flex-row gap-4">
+          {myBoards.map((boardNumber) => {
             const grid = boards[boardNumber - 1];
             if (!grid) return null;
 
@@ -232,21 +226,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
         </div>
       )}
 
-      {/* Bottom buttons */}
-      <div className="flex justify-between w-full mt-4 px-4">
-        <button className="px-6 py-2 text-white bg-blue-500 rounded-full sm:px-4 sm:py-1">
-          Back
-        </button>
-        <button
-          disabled={playing || selectedBoards.length === 0 || isWaiting}
-          onClick={handleStartGameClick}
-          className="px-6 py-2 text-white bg-orange-500 rounded-full sm:px-4 sm:py-1 disabled:opacity-60"
-        >
-          Start Game
-        </button>
-      </div>
-
-      <p className="mt-4 text-sm">© Dire Bingo 2024</p>
+      <p className="mt-4 text-sm">© Dire Bingo 2025</p>
     </div>
   );
 };
