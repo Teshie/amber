@@ -77,34 +77,29 @@ const BingoBoard: React.FC = () => {
       return;
     }
 
-    // Validation: Check if game is playing
+    // Validation: Check if game is playing - redirect to game if already playing
     if (playing) {
-      toast.error("Game is already in progress");
+      router.push("/game");
       return;
     }
 
-    // Determine which slot to use
+    // Determine which slot to use (no immediate redirect - wait for countdown)
     if (userBoard === null || userBoard === boardNumber) {
       if (userBoard === boardNumber) {
         toast.success(`Board ${boardNumber} already selected`);
-        router.push("/game");
         return;
       }
       setPlayerBoard(1, boardNumber);
-      toast.success(`Board ${boardNumber} selected!`);
-      router.push("/game");
+      toast.success(`Board ${boardNumber} selected! Waiting for game to start...`);
     } else if (userBoard2 === null || userBoard2 === boardNumber) {
       if (userBoard2 === boardNumber) {
         toast.success(`Board ${boardNumber} already selected`);
-        router.push("/game");
         return;
       }
       setPlayerBoard(2, boardNumber);
       toast.success(`Board ${boardNumber} selected as 2nd board!`);
-      router.push("/game");
     } else {
       toast.error("You already have 2 boards selected");
-      router.push("/game");
     }
   };
 
@@ -114,6 +109,14 @@ const BingoBoard: React.FC = () => {
       window.location.reload();
     }
   }, [winner]);
+
+  // Auto-redirect to /game when game starts playing (user has board selected)
+  useEffect(() => {
+    const hasBoard = userBoard !== null || userBoard2 !== null;
+    if (playing && hasBoard) {
+      router.push("/game");
+    }
+  }, [playing, userBoard, userBoard2, router]);
 
   // Countdown from roomHeaderData.start_time
   const futureTime = roomHeaderData?.start_time
@@ -127,6 +130,7 @@ const BingoBoard: React.FC = () => {
   };
 
   const [secondsLeft, setSecondsLeft] = useState<number>(calculateTimeLeft());
+  const [hasRedirected, setHasRedirected] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(
@@ -135,6 +139,18 @@ const BingoBoard: React.FC = () => {
     );
     return () => clearInterval(interval);
   }, [futureTime]);
+
+  // Auto-redirect when countdown reaches 0 and user has a board selected
+  useEffect(() => {
+    const hasBoard = userBoard !== null || userBoard2 !== null;
+    const countdownFinished = roomHeaderData?.status === "about_to_start" && secondsLeft === 0;
+    
+    if (hasBoard && countdownFinished && !hasRedirected) {
+      setHasRedirected(true);
+      toast.success("Game starting! Redirecting...");
+      router.push("/game");
+    }
+  }, [secondsLeft, userBoard, userBoard2, roomHeaderData?.status, hasRedirected, router]);
 
   // Helper to render a range of boards
   const renderBoardButtons = (start: number, end: number) => {
