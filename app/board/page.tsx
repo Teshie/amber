@@ -1,18 +1,35 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import boards from "../data/board.json";
 import { useRouter } from "next/navigation";
 import { useCounter } from "../store/store";
 import toast from "react-hot-toast";
+import { api } from "../components/api";
+
+/* -------------------- Types -------------------- */
+interface MePayload {
+  balance_birr?: string;
+  main_balance_birr?: string;
+  balance?: number | string;
+  main_balance?: number | string;
+}
+
+/* -------------------- Helpers -------------------- */
+function parseNumberLoose(v: unknown): number {
+  if (v == null) return 0;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const n = parseFloat(String(v).replace(/,/g, ""));
+  return Number.isNaN(n) ? 0 : n;
+}
 
 const BingoBoard: React.FC = () => {
   const [showSecondHundred, setShowSecondHundred] = useState(false);
+  const [me, setMe] = useState<MePayload | null>(null);
   const router = useRouter();
 
   const {
     winner,
-    balance,
     roomHeaderData,
     setPlayerBoard,
     userBoard,
@@ -21,13 +38,35 @@ const BingoBoard: React.FC = () => {
 
   const playing = roomHeaderData?.status === "playing";
   const stakeAmount = roomHeaderData?.stake_amount ?? 0;
-  const lowBalance = stakeAmount > (balance ?? 0);
+
+  // Fetch balance from /me API
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    api
+      .get(`/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => setMe(res.data as MePayload))
+      .catch((err) => {
+        console.error("GET /me failed:", err?.response?.data || err?.message);
+      });
+  }, []);
+
+  // Compute total balance from /me response
+  const balance = useMemo(() => {
+    const a = parseNumberLoose(me?.balance_birr ?? me?.balance);
+    const b = parseNumberLoose(me?.main_balance_birr ?? me?.main_balance);
+    return a + b;
+  }, [me]);
+
+  const lowBalance = stakeAmount > balance;
 
   // Handle board click - immediate selection and send to backend
   const handleBoardClick = (boardNumber: number) => {
     // Validation: Check balance
     if (lowBalance) {
-      toast.error("Insufficient balance");
+      toast.error(`Insufficient balance (${balance} ETB < ${stakeAmount} ETB stake)`);
       return;
     }
 
@@ -46,9 +85,7 @@ const BingoBoard: React.FC = () => {
 
     // Determine which slot to use
     if (userBoard === null || userBoard === boardNumber) {
-      // Set as first board or toggle off
       if (userBoard === boardNumber) {
-        // Already selected by me, could implement deselect if needed
         toast.success(`Board ${boardNumber} already selected`);
         router.push("/game");
         return;
@@ -57,7 +94,6 @@ const BingoBoard: React.FC = () => {
       toast.success(`Board ${boardNumber} selected!`);
       router.push("/game");
     } else if (userBoard2 === null || userBoard2 === boardNumber) {
-      // Set as second board
       if (userBoard2 === boardNumber) {
         toast.success(`Board ${boardNumber} already selected`);
         router.push("/game");
@@ -67,7 +103,6 @@ const BingoBoard: React.FC = () => {
       toast.success(`Board ${boardNumber} selected as 2nd board!`);
       router.push("/game");
     } else {
-      // Already have 2 boards
       toast.error("You already have 2 boards selected");
       router.push("/game");
     }
@@ -155,6 +190,10 @@ const BingoBoard: React.FC = () => {
     <div className="flex font-mono flex-col items-center min-h-screen bg-purple-400">
       <div className="mb-4 bg-purple-700 w-full rounded-b-xl">
         <div className="flex mt-2 text-black justify-around items-center space-x-4 mb-4">
+          <div className="text-center bg-white rounded-full p-1 px-2">
+            <p className="text-sm">Balance</p>
+            <p className="text-sm font-bold">{balance} ETB</p>
+          </div>
           <div className="text-center bg-white rounded-full p-1">
             <p className="text-sm">Active Game</p>
             <p className="text-sm font-bold">{playing ? 1 : 0}</p>
@@ -177,7 +216,7 @@ const BingoBoard: React.FC = () => {
         {/* Balance warning */}
         {lowBalance && (
           <div className="text-center text-red-200 text-sm pb-2">
-            Insufficient balance ({balance ?? 0} ETB)
+            Insufficient balance ({balance} ETB)
           </div>
         )}
       </div>
