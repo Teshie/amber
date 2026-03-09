@@ -308,109 +308,98 @@ const GamePage: React.FC = () => {
               />
             </div>
 
-            {/* Board 1 - Show actual board or placeholder */}
-            <div className="">
-              {true ? (
-                <PlayerBoard
-                  userBoard={
-                    userBoard ?? finalGameDetails?.user_board_number ?? 0
-                  }
-                  markedNumbers={markedNumbers}
-                  onNumberClick={handleNumberToggle}
-                />
-              ) : (
-                <div className="w-full boadr-main rounded-lg text-center ">
-                  <div className="flex justify-around mb-1">
-                    <span className="bg-yellow-500 py-0.5 w-7 h-6 rounded text-xs">
-                      B
-                    </span>
-                    <span className="bg-green-500 py-0.5 w-7 h-7 rounded text-xs">
-                      I
-                    </span>
-                    <span className="bg-blue-500 py-0.5 w-7 h-7 rounded text-xs">
-                      N
-                    </span>
-                    <span className="bg-orange-500 py-0.5 w-7 h-7 rounded text-xs">
-                      G
-                    </span>
-                    <span className="bg-purple-500 py-0.5 w-7 h-7 rounded text-xs">
-                      O
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-0.5 p-0.5 h-[180px]  flex items-center justify-center">
-                    <div className="col-span-5 text-gray-400 text-sm">
-                      Board One Here
-                    </div>
-                  </div>
+            {/* Show waiting message if user has no board */}
+            {!userBoard && !userBoard2 && !finalGameDetails?.user_board_number ? (
+              <div className="flex flex-col items-center justify-center h-[400px]">
+                <div className="text-white text-xl font-bold text-center p-4 bg-gray-700 rounded-lg">
+                  Please wait until the game is finished
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <>
+                {/* Board 1 - Show actual board */}
+                <div className="">
+                  <PlayerBoard
+                    userBoard={
+                      userBoard ?? finalGameDetails?.user_board_number ?? 0
+                    }
+                    markedNumbers={markedNumbers}
+                    onNumberClick={handleNumberToggle}
+                  />
+                </div>
 
-            {/* Board 2 - Show actual board or placeholder */}
-            <div className="mt-1">
-              {userBoard2 || finalGameDetails?.user_board_number_2 ? (
-                <PlayerBoard
-                  userBoard={
-                    userBoard2 ?? finalGameDetails?.user_board_number_2 ?? 0
-                  }
-                  markedNumbers={markedNumbers}
-                  onNumberClick={handleNumberToggle}
-                />
-              ) : (
-                <div className="w-full boadr-main rounded-lg text-center">
-                  <div className="flex justify-around mb-1">
-                    <span className="bg-yellow-500 py-0.5 w-7 h-6 rounded text-xs">
-                      B
-                    </span>
-                    <span className="bg-green-500 py-0.5 w-7 h-7 rounded text-xs">
-                      I
-                    </span>
-                    <span className="bg-blue-500 py-0.5 w-7 h-7 rounded text-xs">
-                      N
-                    </span>
-                    <span className="bg-orange-500 py-0.5 w-7 h-7 rounded text-xs">
-                      G
-                    </span>
-                    <span className="bg-purple-500 py-0.5 w-7 h-7 rounded text-xs">
-                      O
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-5 bg green-500 gap-0.5 p-0.5 h-[180px] flex items-center justify-center">
-                    <div className="col-span-5 text-red-700 animate-pulse text-xl">
-                      ካርቴላ ቁጥር ሁለት{" "}
+                {/* Board 2 - Show actual board or placeholder */}
+                <div className="mt-1">
+                  {userBoard2 || finalGameDetails?.user_board_number_2 ? (
+                    <PlayerBoard
+                      userBoard={
+                        userBoard2 ?? finalGameDetails?.user_board_number_2 ?? 0
+                      }
+                      markedNumbers={markedNumbers}
+                      onNumberClick={handleNumberToggle}
+                    />
+                  ) : (
+                    <div className="w-full boadr-main rounded-lg text-center">
+                      <div className="flex justify-around mb-1">
+                        <span className="bg-yellow-500 py-0.5 w-7 h-6 rounded text-xs">
+                          B
+                        </span>
+                        <span className="bg-green-500 py-0.5 w-7 h-7 rounded text-xs">
+                          I
+                        </span>
+                        <span className="bg-blue-500 py-0.5 w-7 h-7 rounded text-xs">
+                          N
+                        </span>
+                        <span className="bg-orange-500 py-0.5 w-7 h-7 rounded text-xs">
+                          G
+                        </span>
+                        <span className="bg-purple-500 py-0.5 w-7 h-7 rounded text-xs">
+                          O
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-5 bg green-500 gap-0.5 p-0.5 h-[180px] flex items-center justify-center">
+                        <div className="col-span-5 text-red-700 animate-pulse text-xl">
+                          ካርቴላ ቁጥር ሁለት{" "}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* BINGO Claim */}
-      <button
-        disabled={calledNumbers?.length <= 3}
-        onClick={claimBingo}
-        className="w-full p-2 mt-1 text-2xl font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 rounded-lg"
-      >
-        BINGO!
-      </button>
+      {/* Only show BINGO and action buttons if user has a board */}
+      {(userBoard || userBoard2 || finalGameDetails?.user_board_number) && (
+        <>
+          {/* BINGO Claim */}
+          <button
+            disabled={calledNumbers?.length <= 3}
+            onClick={claimBingo}
+            className="w-full p-2 mt-1 text-2xl font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 rounded-lg"
+          >
+            BINGO!
+          </button>
 
-      <div className="flex justify-between w-full px-4 mt-4">
-        <button
-          onClick={refresh}
-          className="px-6 py-2 text-white bg-blue-500 rounded-full sm:px-4 sm:py-1"
-        >
-          Refresh
-        </button>
-        <button
-          onClick={handleLeave}
-          disabled={calledNumbers?.length > 0}
-          className="px-6 py-2 text-white bg-orange-500 rounded-full sm:px-4 sm:py-1 disabled:opacity-60"
-        >
-          Leave
-        </button>
-      </div>
+          <div className="flex justify-between w-full px-4 mt-4">
+            <button
+              onClick={refresh}
+              className="px-6 py-2 text-white bg-blue-500 rounded-full sm:px-4 sm:py-1"
+            >
+              Refresh
+            </button>
+            <button
+              onClick={handleLeave}
+              disabled={calledNumbers?.length > 0}
+              className="px-6 py-2 text-white bg-orange-500 rounded-full sm:px-4 sm:py-1 disabled:opacity-60"
+            >
+              Leave
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

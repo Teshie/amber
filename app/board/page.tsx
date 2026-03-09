@@ -110,13 +110,12 @@ const BingoBoard: React.FC = () => {
     }
   }, [winner]);
 
-  // Auto-redirect to /game when game starts playing (user has board selected)
+  // Auto-redirect to /game when game is playing (with or without board)
   useEffect(() => {
-    const hasBoard = userBoard !== null || userBoard2 !== null;
-    if (playing && hasBoard) {
+    if (playing) {
       router.push("/game");
     }
-  }, [playing, userBoard, userBoard2, router]);
+  }, [playing, router]);
 
   // Countdown from roomHeaderData.start_time
   const futureTime = roomHeaderData?.start_time
