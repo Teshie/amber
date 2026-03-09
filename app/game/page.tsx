@@ -232,9 +232,9 @@ const GamePage: React.FC = () => {
 
             <button
               disabled={true}
-              className="w-full mt-4 p-2 text-lg font-bold bg-gray-500 rounded cursor-not-allowed"
+              className="w-full mt-4 p-3 text-2xl font-bold bg-gray-500 rounded cursor-not-allowed"
             >
-              {winnerCountdown > 0 ? `Redirecting in ${winnerCountdown}...` : "Redirecting..."}
+              {winnerCountdown}
             </button>
           </div>
         </div>
@@ -258,9 +258,9 @@ const GamePage: React.FC = () => {
             </div>
             <button
               disabled={true}
-              className="w-full mt-4 p-2 text-lg font-bold bg-gray-500 rounded cursor-not-allowed"
+              className="w-full mt-4 p-3 text-2xl font-bold bg-gray-500 rounded cursor-not-allowed"
             >
-              {notWonCountdown > 0 ? `Redirecting in ${notWonCountdown}...` : "Redirecting..."}
+              {notWonCountdown}
             </button>
           </div>
         </div>

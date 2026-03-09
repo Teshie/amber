@@ -210,14 +210,6 @@ const BingoBoard: React.FC = () => {
             <p className="text-sm">Balance</p>
             <p className="text-sm font-bold">{balance} ETB</p>
           </div>
-          <div className="text-center bg-white rounded-full p-1">
-            <p className="text-sm">Active Game</p>
-            <p className="text-sm font-bold">{playing ? 1 : 0}</p>
-          </div>
-          <div className="text-center w-24 bg-white rounded-full p-1">
-            <p className="text-sm">Stake</p>
-            <p className="text-sm font-bold">{roomHeaderData?.stake_amount}</p>
-          </div>
           <div className="text-center w-24 bg-white rounded-full p-1">
             <p className="text-sm">Start in</p>
             <p className="text-sm font-bold">
