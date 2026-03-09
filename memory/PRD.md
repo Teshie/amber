@@ -24,6 +24,16 @@ Simplify the bingo system with rooms - make only a 10 ETB room so when user land
 - Removed room selection screen from login flow
 - Users now go directly to board selection for Room 10 (10 ETB stake)
 
+**Date: 2026-03-09 (Update 2)**
+- Simplified board selection - click to select immediately (no Start Game button)
+- Removed Start Game and Back buttons
+- Board click sends selection to backend via WebSocket immediately
+- Validation errors show as toast messages:
+  - "Insufficient balance"
+  - "Board already selected by another player"
+  - "Game is already in progress"
+- After selecting board, user redirected to /game automatically
+
 ## Core Requirements
 - [x] Skip room selection entirely
 - [x] Auto-connect to Room 10 on login
