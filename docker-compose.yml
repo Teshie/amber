@@ -1,0 +1,23 @@
+# next/docker-compose.yml
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: next-app:14.2.5
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NEXT_TELEMETRY_DISABLED=1
+    ports:
+      - "3000:3000"    # <-- publish to host so Caddy can reach it
+    restart: unless-stopped
+    networks:
+      - edge_net
+
+networks:
+  edge_net:
+    external: true

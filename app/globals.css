@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* HTML: <div class="loader"></div> */
+.loader {
+  width: 50px;
+  --b: 8px; 
+  aspect-ratio: 1;
+  border-radius: 50%;
+  padding: 1px;
+  background: conic-gradient(#0000 10%,#f03355) content-box;
+  -webkit-mask:
+    repeating-conic-gradient(#0000 0deg,#000 1deg 20deg,#0000 21deg 36deg),
+    radial-gradient(farthest-side,#0000 calc(100% - var(--b) - 1px),#000 calc(100% - var(--b)));
+  -webkit-mask-composite: destination-in;
+          mask-composite: intersect;
+  animation:l4 1s infinite steps(10);
+}
+@keyframes l4 {to{transform: rotate(1turn)}}
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: white;
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+.text-four{
+  background-color: #F3F7EC;
+  font-size: smaller;
+}
+.status{
+  background-color: #FF8343;
+}
+.current{
+  background-color: #102C57;
+}
+.current-text{
+  color: white;
+}
+.main{
+  background-color: #496989;
+}
+.board{
+  background-color: #A1D6B2;
+}
+.header{
+  background-color: #B99470;
+}
+.notify{
+  background-color: #00539CFF;
+}
+.notify_button{
+  background-color: #28334AFF;
+  color: white;
+}
+.balance{
+  background-color: #101820FF;
+  color: #FEE715FF;
+}
+.numbers{
+  background-color: #B99470;
+box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+backdrop-filter: blur(4.5px);
+-webkit-backdrop-filter: blur(4.5px);
+border: 1px solid rgba(255, 255, 255, 0.89);
+}
+
+.small-board {
+  transform: scale(0.8); /* Adjust the scale as needed */
+}
+.called-numbers {
+  background-color: #4caf50;
+  color: #fff;
+}
+
+.last-called {
+  background-color: #ff0000;
+  color: #fff;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+.boadr-main{
+  background-color: #FFDBB5;
+}
+.called-numbers{
+  background-color: #00712D;
+}
