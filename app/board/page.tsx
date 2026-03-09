@@ -131,6 +131,9 @@ const BingoBoard: React.FC = () => {
   const [secondsLeft, setSecondsLeft] = useState<number>(calculateTimeLeft());
   const [hasRedirected, setHasRedirected] = useState(false);
 
+  // Check if countdown is at 1 or less (disable selections)
+  const isLastSecond = roomHeaderData?.status === "about_to_start" && secondsLeft <= 1;
+
   useEffect(() => {
     const interval = setInterval(
       () => setSecondsLeft(calculateTimeLeft()),
@@ -139,17 +142,15 @@ const BingoBoard: React.FC = () => {
     return () => clearInterval(interval);
   }, [futureTime]);
 
-  // Auto-redirect when countdown reaches 0 and user has a board selected
+  // Auto-redirect when countdown reaches 1 second
   useEffect(() => {
-    const hasBoard = userBoard !== null || userBoard2 !== null;
-    const countdownFinished = roomHeaderData?.status === "about_to_start" && secondsLeft === 0;
+    const countdownAtOne = roomHeaderData?.status === "about_to_start" && secondsLeft === 1;
     
-    if (hasBoard && countdownFinished && !hasRedirected) {
+    if (countdownAtOne && !hasRedirected) {
       setHasRedirected(true);
-      toast.success("Game starting! Redirecting...");
       router.push("/game");
     }
-  }, [secondsLeft, userBoard, userBoard2, roomHeaderData?.status, hasRedirected, router]);
+  }, [secondsLeft, roomHeaderData?.status, hasRedirected, router]);
 
   // Helper to render a range of boards
   const renderBoardButtons = (start: number, end: number) => {
@@ -165,20 +166,28 @@ const BingoBoard: React.FC = () => {
           const isSelectedByMe = userBoard === boardNumber || userBoard2 === boardNumber;
           const slotNumber = userBoard === boardNumber ? 1 : userBoard2 === boardNumber ? 2 : 0;
 
+          // Disable if last second or already taken
+          const isDisabled = isLastSecond || isSelectedByOthers;
+
           return (
             <button
               key={boardNumber}
-              onClick={() => handleBoardClick(boardNumber)}
+              onClick={() => !isDisabled && handleBoardClick(boardNumber)}
+              disabled={isDisabled}
               data-testid={`board-btn-${boardNumber}`}
               className={`relative flex items-center justify-center w-7 h-7 text-lg font-bold rounded-md shadow-md sm:w-8 sm:h-8 transition-all ${
-                isSelectedByOthers
+                isLastSecond && !isSelectedByMe
+                  ? "bg-gray-400 cursor-not-allowed opacity-50"
+                  : isSelectedByOthers
                   ? "bg-red-500 cursor-not-allowed"
                   : isSelectedByMe
                   ? "bg-green-500 text-white"
                   : "bg-purple-300 hover:bg-purple-200 active:scale-95"
               }`}
               title={
-                isSelectedByOthers
+                isLastSecond
+                  ? "Game starting..."
+                  : isSelectedByOthers
                   ? "Board already taken"
                   : isSelectedByMe
                   ? `Your board ${slotNumber}`
