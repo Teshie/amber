@@ -49,6 +49,63 @@ const GamePage: React.FC = () => {
     }
   }, []);
 
+  // Winner modal countdown state
+  const [winnerCountdown, setWinnerCountdown] = useState<number>(5);
+  const winnersCount = winners?.length || 0;
+
+  // Start countdown when winners appear
+  useEffect(() => {
+    if (winnersCount > 0) {
+      setWinnerCountdown(5);
+      const interval = setInterval(() => {
+        setWinnerCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [winnersCount]);
+
+  // Auto-redirect when winner countdown reaches 0
+  useEffect(() => {
+    if (winnersCount > 0 && winnerCountdown === 0 && token) {
+      const sanitizedToken = token.replace("}", "");
+      router.push(`/login/${sanitizedToken}`);
+    }
+  }, [winnerCountdown, winnersCount, token, router]);
+
+  // "Not won" modal countdown state
+  const [notWonCountdown, setNotWonCountdown] = useState<number>(5);
+
+  // Start countdown when "not won" modal appears
+  useEffect(() => {
+    if (notification.title === "400") {
+      setNotWonCountdown(5);
+      const interval = setInterval(() => {
+        setNotWonCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [notification.title]);
+
+  // Auto-redirect when "not won" countdown reaches 0
+  useEffect(() => {
+    if (notification.title === "400" && notWonCountdown === 0 && token) {
+      const sanitizedToken = token.replace("}", "");
+      router.push(`/login/${sanitizedToken}`);
+    }
+  }, [notWonCountdown, notification.title, token, router]);
+
   const refresh = () => {
     // optional soft refresh logic here
   };
@@ -100,8 +157,6 @@ const GamePage: React.FC = () => {
       toast(`📢: ${(closeMessege as any)?.error_messege}`);
     }
   }, [closeMessege]);
-
-  const winnersCount = winners?.length || 0;
 
   const lastNotificationRef = useRef<string | null>(null);
   useEffect(() => {
@@ -176,10 +231,10 @@ const GamePage: React.FC = () => {
             </div>
 
             <button
-              onClick={handleClose}
-              className="w-full mt-4 p-2 text-lg font-bold bg-green-600 rounded"
+              disabled={true}
+              className="w-full mt-4 p-2 text-lg font-bold bg-gray-500 rounded cursor-not-allowed"
             >
-              Play Again
+              {winnerCountdown > 0 ? `Redirecting in ${winnerCountdown}...` : "Redirecting..."}
             </button>
           </div>
         </div>
@@ -202,10 +257,10 @@ const GamePage: React.FC = () => {
               />
             </div>
             <button
-              onClick={handleClose}
-              className="w-full mt-4 p-2 text-lg font-bold bg-green-600 rounded"
+              disabled={true}
+              className="w-full mt-4 p-2 text-lg font-bold bg-gray-500 rounded cursor-not-allowed"
             >
-              Play Again
+              {notWonCountdown > 0 ? `Redirecting in ${notWonCountdown}...` : "Redirecting..."}
             </button>
           </div>
         </div>
