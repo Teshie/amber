@@ -135,7 +135,7 @@ const API_BASE =
   (typeof window !== "undefined" &&
     (process.env.NEXT_PUBLIC_HTTP_API ||
       `${window.location.protocol}//${window.location.host}`)) ||
-  "https://henb.teshie.dev";
+  "https://amber.teshie.dev";
 
 const LSK_ROOM_ID = "arada.currentRoomId";
 const LSK_WS_URL = "arada.currentRoomWS";

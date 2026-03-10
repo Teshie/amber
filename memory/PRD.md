@@ -6,8 +6,8 @@ Simplify the bingo system with rooms - make only a 10 ETB room so when user land
 ## Architecture
 - **Framework**: Next.js 14.2.5
 - **State Management**: React Context + Redux
-- **Real-time**: WebSocket (wss://henb.teshie.dev)
-- **Backend API**: External (https://henb.teshie.dev)
+- **Real-time**: WebSocket (wss://amber.teshie.dev)
+- **Backend API**: External (https://amber.teshie.dev)
 
 ## User Flow (Updated)
 1. User accesses `/login/[token]`

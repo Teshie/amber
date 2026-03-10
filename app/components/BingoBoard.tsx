@@ -50,8 +50,8 @@ function decodeJwtPayload<T = any>(token?: string | null): T | null {
 
 /* -------------------- Component -------------------- */
 const RELOAD_FLAG = "bingo_initial_reload_done";
-const ROOMS_WS = "wss://henb.teshie.dev";
-const WS_BASE = "wss://henb.teshie.dev";
+const ROOMS_WS = "wss://amber.teshie.dev";
+const WS_BASE = "wss://amber.teshie.dev";
 
 const BingoBoard: React.FC = () => {
   const router = useRouter();

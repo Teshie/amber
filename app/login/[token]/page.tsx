@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCounter } from "@/app/store/store";
 import BoardSelection from "@/app/board/page";
 
-const WS_BASE = "wss://henb.teshie.dev";
+const WS_BASE = "wss://amber.teshie.dev";
 const ROOM_10_ID = "10"; // Room 10 ETB
 
 const MainGate = () => {
