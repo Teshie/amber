@@ -292,7 +292,7 @@ const BingoBoard: React.FC = () => {
         </div>
       </div>
 
-      <p className="mt-4 text-sm">© Dire Bingo 2025</p>
+      <p className="mt-4 text-sm">© Gojjam Bingo 2025</p>
     </div>
   );
 };

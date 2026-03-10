@@ -28,13 +28,8 @@ const BingoBoard: React.FC = () => {
   const [me, setMe] = useState<MePayload | null>(null);
   const router = useRouter();
 
-  const {
-    winner,
-    roomHeaderData,
-    setPlayerBoard,
-    userBoard,
-    userBoard2,
-  } = useCounter();
+  const { winner, roomHeaderData, setPlayerBoard, userBoard, userBoard2 } =
+    useCounter();
 
   const playing = roomHeaderData?.status === "playing";
   const stakeAmount = roomHeaderData?.stake_amount ?? 0;
@@ -66,12 +61,15 @@ const BingoBoard: React.FC = () => {
   const handleBoardClick = (boardNumber: number) => {
     // Validation: Check balance
     if (lowBalance) {
-      toast.error(`Insufficient balance (${balance} ETB < ${stakeAmount} ETB stake)`);
+      toast.error(
+        `Insufficient balance (${balance} ETB < ${stakeAmount} ETB stake)`
+      );
       return;
     }
 
     // Validation: Check if board already taken by others
-    const isSelectedByOthers = roomHeaderData?.selected_board_numbers?.includes(boardNumber);
+    const isSelectedByOthers =
+      roomHeaderData?.selected_board_numbers?.includes(boardNumber);
     if (isSelectedByOthers) {
       toast.error("Board already selected by another player");
       return;
@@ -90,7 +88,9 @@ const BingoBoard: React.FC = () => {
         return;
       }
       setPlayerBoard(1, boardNumber);
-      toast.success(`Board ${boardNumber} selected! Waiting for game to start...`);
+      toast.success(
+        `Board ${boardNumber} selected! Waiting for game to start...`
+      );
     } else if (userBoard2 === null || userBoard2 === boardNumber) {
       if (userBoard2 === boardNumber) {
         toast.success(`Board ${boardNumber} already selected`);
@@ -132,7 +132,8 @@ const BingoBoard: React.FC = () => {
   const [hasRedirected, setHasRedirected] = useState(false);
 
   // Check if countdown is at 1 or less (disable selections)
-  const isLastSecond = roomHeaderData?.status === "about_to_start" && secondsLeft <= 1;
+  const isLastSecond =
+    roomHeaderData?.status === "about_to_start" && secondsLeft <= 1;
 
   useEffect(() => {
     const interval = setInterval(
@@ -144,8 +145,9 @@ const BingoBoard: React.FC = () => {
 
   // Auto-redirect when countdown reaches 1 second
   useEffect(() => {
-    const countdownAtOne = roomHeaderData?.status === "about_to_start" && secondsLeft === 1;
-    
+    const countdownAtOne =
+      roomHeaderData?.status === "about_to_start" && secondsLeft === 1;
+
     if (countdownAtOne && !hasRedirected) {
       setHasRedirected(true);
       router.push("/game");
@@ -163,8 +165,10 @@ const BingoBoard: React.FC = () => {
             roomHeaderData?.status !== "playing";
 
           // Check if selected by current user
-          const isSelectedByMe = userBoard === boardNumber || userBoard2 === boardNumber;
-          const slotNumber = userBoard === boardNumber ? 1 : userBoard2 === boardNumber ? 2 : 0;
+          const isSelectedByMe =
+            userBoard === boardNumber || userBoard2 === boardNumber;
+          const slotNumber =
+            userBoard === boardNumber ? 1 : userBoard2 === boardNumber ? 2 : 0;
 
           // Disable if last second or already taken
           const isDisabled = isLastSecond || isSelectedByOthers;
@@ -208,7 +212,9 @@ const BingoBoard: React.FC = () => {
   };
 
   // My selected boards preview
-  const myBoards = [userBoard, userBoard2].filter((b) => b !== null) as number[];
+  const myBoards = [userBoard, userBoard2].filter(
+    (b) => b !== null
+  ) as number[];
 
   return (
     <div className="flex font-mono flex-col items-center min-h-screen bg-purple-400">
@@ -281,7 +287,7 @@ const BingoBoard: React.FC = () => {
         </div>
       )}
 
-      <p className="mt-4 text-sm">© Dire Bingo 2025</p>
+      <p className="mt-4 text-sm">© Gojjam Bingo 2025</p>
     </div>
   );
 };
