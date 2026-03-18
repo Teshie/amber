@@ -218,7 +218,7 @@ const BingoBoard: React.FC = () => {
 
   return (
     <div className="flex font-mono flex-col items-center min-h-screen bg-purple-400">
-      <div className="mb-4 bg-purple-700 w-full rounded-b-xl">
+      <div className="mb-4 bg-purple-700 w-full rounded-b-xl sticky top-0 z-10">
         <div className="flex mt-2 text-black justify-around items-center space-x-4 mb-4">
           <div className="text-center bg-white rounded-full p-1 px-2">
             <p className="text-sm">Balance</p>
@@ -243,51 +243,54 @@ const BingoBoard: React.FC = () => {
         )}
       </div>
 
-      {/* 1–100 board buttons */}
-      {renderBoardButtons(1, 400)}
+      {/* Scrollable board container */}
+      <div className="flex-1 overflow-y-auto w-full px-4 pb-4">
+        {/* 1–400 board buttons */}
+        {renderBoardButtons(1, 400)}
 
-      {/* Preview my selected boards */}
-      {myBoards.length > 0 && (
-        <div className="mt-4 flex sm:flex-row gap-4">
-          {myBoards.map((boardNumber) => {
-            const grid = boards[boardNumber - 1];
-            if (!grid) return null;
+        {/* Preview my selected boards */}
+        {myBoards.length > 0 && (
+          <div className="mt-4 flex sm:flex-row gap-4">
+            {myBoards.map((boardNumber) => {
+              const grid = boards[boardNumber - 1];
+              if (!grid) return null;
 
-            return (
-              <div key={boardNumber} className="flex flex-col items-center">
-                <p className="mb-1 text-sm font-bold">Board {boardNumber}</p>
-                <div className="grid grid-cols-5 gap-1">
-                  {grid.flat().map((number, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-center w-5 h-5 text-sm bg-purple-300 rounded-md shadow-md"
-                    >
-                      {number === "FREE" ? "F" : number}
-                    </div>
-                  ))}
+              return (
+                <div key={boardNumber} className="flex flex-col items-center">
+                  <p className="mb-1 text-sm font-bold">Board {boardNumber}</p>
+                  <div className="grid grid-cols-5 gap-1">
+                    {grid.flat().map((number, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-center w-5 h-5 text-sm bg-purple-300 rounded-md shadow-md"
+                      >
+                        {number === "FREE" ? "F" : number}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
-      {/* Show 100–200 toggle */}
-      {boards.length > 400 && (
-        <div className="mt-3 w-full flex flex-col items-center gap-2">
-          {showSecondHundred &&
-            renderBoardButtons(401, Math.min(600, boards.length))}
+        {/* Show 400–600 toggle */}
+        {boards.length > 400 && (
+          <div className="mt-3 w-full flex flex-col items-center gap-2">
+            {showSecondHundred &&
+              renderBoardButtons(401, Math.min(600, boards.length))}
 
-          <button
-            onClick={() => setShowSecondHundred((v) => !v)}
-            className="px-4 py-1 bg-purple-700 text-white rounded-full text-sm shadow"
-          >
-            {showSecondHundred ? "Hide 100–200" : "Show 100–200"}
-          </button>
-        </div>
-      )}
+            <button
+              onClick={() => setShowSecondHundred((v) => !v)}
+              className="px-4 py-1 bg-purple-700 text-white rounded-full text-sm shadow"
+            >
+              {showSecondHundred ? "Hide 400–600" : "Show 400–600"}
+            </button>
+          </div>
+        )}
+      </div>
 
-      <p className="mt-4 text-sm">© Sky Bingo 2025</p>
+      <p className="mt-4 text-sm pb-2">© Sky Bingo 2025</p>
     </div>
   );
 };
