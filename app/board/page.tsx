@@ -88,9 +88,9 @@ const BingoBoard: React.FC = () => {
         return;
       }
       setPlayerBoard(1, boardNumber);
-      toast.success(
-        `Board ${boardNumber} selected! Waiting for game to start...`
-      );
+      // toast.success(
+      //   `Board ${boardNumber} selected! Waiting for game to start...`
+      // );
     } else if (userBoard2 === null || userBoard2 === boardNumber) {
       if (userBoard2 === boardNumber) {
         toast.success(`Board ${boardNumber} already selected`);
@@ -273,10 +273,10 @@ const BingoBoard: React.FC = () => {
       )}
 
       {/* Show 100–200 toggle */}
-      {boards.length > 100 && (
+      {boards.length > 400 && (
         <div className="mt-3 w-full flex flex-col items-center gap-2">
           {showSecondHundred &&
-            renderBoardButtons(101, Math.min(200, boards.length))}
+            renderBoardButtons(401, Math.min(600, boards.length))}
 
           <button
             onClick={() => setShowSecondHundred((v) => !v)}
@@ -287,7 +287,7 @@ const BingoBoard: React.FC = () => {
         </div>
       )}
 
-      <p className="mt-4 text-sm">© Gojjam Bingo 2025</p>
+      <p className="mt-4 text-sm">© Sky Bingo 2025</p>
     </div>
   );
 };
