@@ -244,7 +244,7 @@ const BingoBoard: React.FC = () => {
       </div>
 
       {/* 1–100 board buttons */}
-      {renderBoardButtons(1, 100)}
+      {renderBoardButtons(1, 400)}
 
       {/* Preview my selected boards */}
       {myBoards.length > 0 && (
