@@ -26,13 +26,9 @@ function parseNumberLoose(v: unknown): number {
 const BingoBoard: React.FC = () => {
   const [showSecondHundred, setShowSecondHundred] = useState(false);
   const [me, setMe] = useState<MePayload | null>(null);
-  /** Next grid pick goes to slot 2 (extra stake). Only when slot 2 is empty. */
-  const [addingSecondBoard, setAddingSecondBoard] = useState(false);
-  /** After tapping your own board while both slots are full, next pick replaces this slot. */
-  const [pendingSwapSlot, setPendingSwapSlot] = useState<1 | 2 | null>(null);
   const router = useRouter();
 
-  const { winner, roomHeaderData, setPlayerBoard, userBoard, userBoard2 } =
+  const { winner, roomHeaderData, setPlayerBoard, clearBoard, userBoard, userBoard2 } =
     useCounter();
 
   const playing = roomHeaderData?.status === "playing";
@@ -60,22 +56,21 @@ const BingoBoard: React.FC = () => {
   }, [me]);
 
   const lowBalance = stakeAmount > 0 && balance < stakeAmount;
-  // Second board only debits one more stake (first is already paid). Do not require 2× stake in wallet.
-  const lowBalanceForSecond =
-    stakeAmount > 0 && balance < stakeAmount && userBoard && !userBoard2;
 
-  useEffect(() => {
-    if (userBoard2 != null) setAddingSecondBoard(false);
-  }, [userBoard2]);
+  const refreshMeSoon = () => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    window.setTimeout(() => {
+      api
+        .get(`/me`, { headers: { Authorization: `Bearer ${token}` } })
+        .then((res) => setMe(res.data as MePayload))
+        .catch(() => {});
+    }, 450);
+  };
 
-  useEffect(() => {
-    if (pendingSwapSlot === 1 && userBoard == null) setPendingSwapSlot(null);
-    if (pendingSwapSlot === 2 && userBoard2 == null) setPendingSwapSlot(null);
-  }, [userBoard, userBoard2, pendingSwapSlot]);
-
-  // Handle board click - immediate selection and send to backend (WS updates everyone in real time)
+  // Tap your number = unselect (WS clear → server refund before round). New picks fill slot 1, then slot 2.
   const handleBoardClick = (boardNumber: number) => {
-    // Validation: Check if game is playing - redirect to game if already playing
     if (playing) {
       router.push("/game");
       return;
@@ -90,35 +85,18 @@ const BingoBoard: React.FC = () => {
       return;
     }
 
-    // Tap your own board (when you have two) → next pick replaces that slot
-    if (userBoard === boardNumber && userBoard2 != null) {
-      setPendingSwapSlot(1);
-      setAddingSecondBoard(false);
-      toast.success("Pick another number to replace your first board");
+    if (userBoard === boardNumber) {
+      clearBoard(1);
+      toast.success("Board 1 removed — stake refunded");
+      refreshMeSoon();
       return;
     }
     if (userBoard2 === boardNumber) {
-      setPendingSwapSlot(2);
-      setAddingSecondBoard(false);
-      toast.success("Pick another number to replace your second board");
+      clearBoard(2);
+      toast.success("Board 2 removed — stake refunded");
+      refreshMeSoon();
       return;
     }
-    if (userBoard === boardNumber && userBoard2 == null) {
-      toast.success(`Board ${boardNumber} already selected`);
-      return;
-    }
-
-    // Replacing a slot after tapping your own board (both slots were full)
-    if (pendingSwapSlot != null) {
-      const slot = pendingSwapSlot;
-      setPlayerBoard(slot, boardNumber);
-      setPendingSwapSlot(null);
-      toast.success(`Board ${boardNumber} — slot ${slot} updated`);
-      return;
-    }
-
-    const willUseSecondSlot =
-      addingSecondBoard && userBoard != null && userBoard2 == null;
 
     if (userBoard === null) {
       if (stakeAmount > 0 && balance < stakeAmount) {
@@ -128,11 +106,11 @@ const BingoBoard: React.FC = () => {
         return;
       }
       setPlayerBoard(1, boardNumber);
-      setAddingSecondBoard(false);
+      refreshMeSoon();
       return;
     }
 
-    if (willUseSecondSlot) {
+    if (userBoard2 === null) {
       if (stakeAmount > 0 && balance < stakeAmount) {
         toast.error(
           `Insufficient balance (${balance} ETB; need ${stakeAmount} ETB for 2nd board`
@@ -140,19 +118,14 @@ const BingoBoard: React.FC = () => {
         return;
       }
       setPlayerBoard(2, boardNumber);
-      setAddingSecondBoard(false);
-      toast.success(`Board ${boardNumber} added as 2nd board`);
+      toast.success(`Board ${boardNumber} selected as 2nd board`);
+      refreshMeSoon();
       return;
     }
 
-    if (userBoard2 === null) {
-      // One board only: a different free number replaces board 1 (fixes “change my board”)
-      setPlayerBoard(1, boardNumber);
-      toast.success(`Switched to board ${boardNumber}`);
-      return;
-    }
-
-    toast.error('Tap one of your green boards first, then pick a new number to swap it.');
+    toast.error(
+      "Both boards are full. Tap a green number to unselect it first, then pick a new board."
+    );
   };
 
   // Reload when a winner is announced
@@ -246,8 +219,8 @@ const BingoBoard: React.FC = () => {
                   : isSelectedByOthers
                   ? "Board already taken"
                   : isSelectedByMe
-                  ? `Your board ${slotNumber}`
-                  : "Click to select"
+                  ? `Board ${slotNumber} — tap to unselect (refund)`
+                  : "Tap to select"
               }
             >
               {boardNumber}
@@ -294,14 +267,9 @@ const BingoBoard: React.FC = () => {
             {stakeAmount} ETB per board)
           </div>
         )}
-        {addingSecondBoard && userBoard && !userBoard2 && !playing && (
-          <div className="text-center text-amber-200 text-sm pb-2 font-semibold">
-            Pick a free board — it will be your 2nd card (+{stakeAmount} ETB).
-          </div>
-        )}
-        {pendingSwapSlot && userBoard && userBoard2 && !playing && (
-          <div className="text-center text-amber-200 text-sm pb-2 font-semibold">
-            Swap mode: choose a new board for slot {pendingSwapSlot}.
+        {!playing && (userBoard || userBoard2) && (
+          <div className="text-center text-amber-100 text-xs pb-2 px-2">
+            Tap your green board number to unselect (refund). Up to two boards.
           </div>
         )}
       </div>
@@ -334,37 +302,6 @@ const BingoBoard: React.FC = () => {
                 </div>
               );
             })}
-            {userBoard && !userBoard2 && !playing && (
-              <div className="flex flex-col items-center gap-1 mt-2 w-full max-w-xs">
-                <button
-                  type="button"
-                  disabled={lowBalanceForSecond}
-                  onClick={() => {
-                    if (lowBalanceForSecond) {
-                      toast.error(
-                        `Need at least ${stakeAmount} ETB for another board`
-                      );
-                      return;
-                    }
-                    setAddingSecondBoard((v) => !v);
-                    setPendingSwapSlot(null);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold shadow ${
-                    addingSecondBoard
-                      ? "bg-amber-400 text-black"
-                      : "bg-white text-purple-900"
-                  } ${
-                    lowBalanceForSecond
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-                >
-                  {addingSecondBoard
-                    ? "Cancel 2nd board"
-                    : `Add 2nd board (+${stakeAmount} ETB)`}
-                </button>
-              </div>
-            )}
           </div>
         )}
 
