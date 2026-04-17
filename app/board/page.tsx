@@ -1,13 +1,17 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import boards from "../data/board.json";
 import { useRouter } from "next/navigation";
-import { useCounter } from "../store/store";
+import {
+  useCounter,
+  S1_FIXED_STAKE_ETB,
+  S1_DEFAULT_ROOM_ID,
+} from "../store/store";
 import toast from "react-hot-toast";
 import { api } from "../components/api";
+import PlayerBoard from "../components/PlayerBoard";
 
-/* -------------------- Types -------------------- */
 interface MePayload {
   balance_birr?: string;
   main_balance_birr?: string;
@@ -15,47 +19,71 @@ interface MePayload {
   main_balance?: number | string;
 }
 
-/* -------------------- Helpers -------------------- */
 function parseNumberLoose(v: unknown): number {
-  if (v == null) return 0;
+  if (v == null || v === "") return 0;
   if (typeof v === "number" && Number.isFinite(v)) return v;
   const n = parseFloat(String(v).replace(/,/g, ""));
   return Number.isNaN(n) ? 0 : n;
 }
 
 const BingoBoard: React.FC = () => {
-  const [showSecondHundred, setShowSecondHundred] = useState(false);
-  const [me, setMe] = useState<MePayload | null>(null);
   const router = useRouter();
+  const [meProfile, setMeProfile] = useState<MePayload | null>(null);
 
-  const { winner, roomHeaderData, setPlayerBoard, clearBoard, userBoard, userBoard2 } =
-    useCounter();
+  const {
+    winner,
+    balance: wsBalance,
+    roomHeaderData,
+    setPlayerBoard,
+    clearBoard,
+    userBoard,
+    userBoard2,
+    rejoinDefaultRoomBoard,
+  } = useCounter();
 
   const playing = roomHeaderData?.status === "playing";
-  const stakeAmount = roomHeaderData?.stake_amount ?? 0;
+  const stakeAmount = S1_FIXED_STAKE_ETB;
 
-  // Fetch balance from /me API
   useEffect(() => {
     if (typeof window === "undefined") return;
     const token = localStorage.getItem("token");
     if (!token) return;
 
     api
-      .get(`/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => setMe(res.data as MePayload))
+      .get("/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => setMeProfile(res.data as MePayload))
       .catch((err) => {
-        console.error("GET /me failed:", err?.response?.data || err?.message);
+        console.warn(
+          "GET /me (board page):",
+          err?.response?.data || err?.message
+        );
       });
   }, []);
 
-  // Compute total balance from /me response
-  const balance = useMemo(() => {
-    const a = parseNumberLoose(me?.balance_birr ?? me?.balance);
-    const b = parseNumberLoose(me?.main_balance_birr ?? me?.main_balance);
+  const meWalletTotal = useMemo(() => {
+    if (!meProfile) return undefined;
+    const hasField =
+      meProfile.balance_birr != null ||
+      meProfile.main_balance_birr != null ||
+      meProfile.balance != null ||
+      meProfile.main_balance != null;
+    if (!hasField) return undefined;
+    const a = parseNumberLoose(meProfile.balance_birr ?? meProfile.balance);
+    const b = parseNumberLoose(
+      meProfile.main_balance_birr ?? meProfile.main_balance
+    );
     return a + b;
-  }, [me]);
+  }, [meProfile]);
 
-  const lowBalance = stakeAmount > 0 && balance < stakeAmount;
+  const effectiveWalletBalance =
+    typeof wsBalance === "number" && Number.isFinite(wsBalance)
+      ? wsBalance
+      : meWalletTotal;
+
+  const cantPlay =
+    typeof effectiveWalletBalance === "number" &&
+    Number.isFinite(effectiveWalletBalance) &&
+    stakeAmount > effectiveWalletBalance;
 
   const refreshMeSoon = () => {
     const token =
@@ -64,15 +92,71 @@ const BingoBoard: React.FC = () => {
     window.setTimeout(() => {
       api
         .get(`/me`, { headers: { Authorization: `Bearer ${token}` } })
-        .then((res) => setMe(res.data as MePayload))
+        .then((res) => setMeProfile(res.data as MePayload))
         .catch(() => {});
     }, 450);
   };
 
-  // Tap your number = unselect (WS clear → server refund before round). New picks fill slot 1, then slot 2.
-  const handleBoardClick = (boardNumber: number) => {
+  const futureTime = roomHeaderData?.start_time
+    ? Date.parse(roomHeaderData.start_time)
+    : 0;
+
+  const calculateTimeLeft = () => {
+    const nowUTC = Date.now();
+    const difference = futureTime - nowUTC;
+    return Math.max(Math.floor(difference / 1000), 0);
+  };
+
+  const [secondsLeft, setSecondsLeft] = useState<number>(() =>
+    Math.max(Math.floor((futureTime - Date.now()) / 1000), 0)
+  );
+
+  useEffect(() => {
+    setSecondsLeft(calculateTimeLeft());
+    const interval = setInterval(
+      () => setSecondsLeft(calculateTimeLeft()),
+      1000
+    );
+    return () => clearInterval(interval);
+  }, [futureTime]);
+
+  const isLastSecond =
+    roomHeaderData?.status === "about_to_start" && secondsLeft <= 1;
+
+  const [hasRedirected, setHasRedirected] = useState(false);
+
+  useEffect(() => {
+    const countdownAtOne =
+      roomHeaderData?.status === "about_to_start" && secondsLeft === 1;
+
+    if (countdownAtOne && !hasRedirected) {
+      setHasRedirected(true);
+      router.push("/game");
+    }
+  }, [secondsLeft, roomHeaderData?.status, hasRedirected, router]);
+
+  useEffect(() => {
     if (playing) {
       router.push("/game");
+    }
+  }, [playing, router]);
+
+  useEffect(() => {
+    if (!winner) return;
+    rejoinDefaultRoomBoard();
+    router.replace(`/board?room=${encodeURIComponent(S1_DEFAULT_ROOM_ID)}`);
+  }, [winner, rejoinDefaultRoomBoard, router]);
+
+  // Tap your number = unselect (WS clear → server refund before round). New picks fill slot 1, then slot 2.
+  const handleBoardClick = (boardNumber: number, isDisabled: boolean) => {
+    if (isDisabled) return;
+
+    if (cantPlay) {
+      toast.error("Insufficient balance for this stake.");
+      return;
+    }
+    if (playing) {
+      toast.error("Cannot change boards during play.");
       return;
     }
 
@@ -98,10 +182,22 @@ const BingoBoard: React.FC = () => {
       return;
     }
 
+    const numericWallet =
+      typeof effectiveWalletBalance === "number" &&
+      Number.isFinite(effectiveWalletBalance)
+        ? effectiveWalletBalance
+        : typeof meWalletTotal === "number" && Number.isFinite(meWalletTotal)
+          ? meWalletTotal
+          : undefined;
+
     if (userBoard === null) {
-      if (stakeAmount > 0 && balance < stakeAmount) {
+      if (
+        stakeAmount > 0 &&
+        numericWallet !== undefined &&
+        numericWallet < stakeAmount
+      ) {
         toast.error(
-          `Insufficient balance (${balance} ETB; need ${stakeAmount} ETB)`
+          `Insufficient balance (${numericWallet} ETB; need ${stakeAmount} ETB)`
         );
         return;
       }
@@ -111,9 +207,13 @@ const BingoBoard: React.FC = () => {
     }
 
     if (userBoard2 === null) {
-      if (stakeAmount > 0 && balance < stakeAmount) {
+      if (
+        stakeAmount > 0 &&
+        numericWallet !== undefined &&
+        numericWallet < stakeAmount
+      ) {
         toast.error(
-          `Insufficient balance (${balance} ETB; need ${stakeAmount} ETB for 2nd board`
+          `Insufficient balance (${numericWallet} ETB; need ${stakeAmount} ETB for 2nd board`
         );
         return;
       }
@@ -128,200 +228,170 @@ const BingoBoard: React.FC = () => {
     );
   };
 
-  // Reload when a winner is announced
-  useEffect(() => {
-    if (winner) {
-      window.location.reload();
-    }
-  }, [winner]);
+  const renderCartelaButton = (boardNumber: number) => {
+    const notPlaying = roomHeaderData?.status !== "playing";
+    const isOccupiedInRoom =
+      notPlaying &&
+      roomHeaderData?.selected_board_numbers?.includes(boardNumber);
 
-  // Auto-redirect to /game when game is playing (with or without board)
-  useEffect(() => {
-    if (playing) {
-      router.push("/game");
-    }
-  }, [playing, router]);
+    const isMine =
+      userBoard === boardNumber || userBoard2 === boardNumber;
+    const slotBadge =
+      userBoard === boardNumber ? 1 : userBoard2 === boardNumber ? 2 : 0;
 
-  // Countdown from roomHeaderData.start_time
-  const futureTime = roomHeaderData?.start_time
-    ? Date.parse(roomHeaderData.start_time)
-    : 0;
+    const mergedMine = new Set<number>();
+    if (userBoard != null && userBoard >= 1) mergedMine.add(userBoard);
+    if (userBoard2 != null && userBoard2 >= 1) mergedMine.add(userBoard2);
+    const atMaxSelection = mergedMine.size >= 2 && !mergedMine.has(boardNumber);
 
-  const calculateTimeLeft = () => {
-    const nowUTC = Date.now();
-    const difference = futureTime - nowUTC;
-    return Math.max(Math.floor(difference / 1000), 0);
-  };
-
-  const [secondsLeft, setSecondsLeft] = useState<number>(calculateTimeLeft());
-  const [hasRedirected, setHasRedirected] = useState(false);
-
-  // Check if countdown is at 1 or less (disable selections)
-  const isLastSecond =
-    roomHeaderData?.status === "about_to_start" && secondsLeft <= 1;
-
-  useEffect(() => {
-    const interval = setInterval(
-      () => setSecondsLeft(calculateTimeLeft()),
-      1000
+    const isDisabled = Boolean(
+      isLastSecond ||
+        (isOccupiedInRoom && !isMine) ||
+        (atMaxSelection && !isMine)
     );
-    return () => clearInterval(interval);
-  }, [futureTime]);
 
-  // Auto-redirect when countdown reaches 1 second
-  useEffect(() => {
-    const countdownAtOne =
-      roomHeaderData?.status === "about_to_start" && secondsLeft === 1;
-
-    if (countdownAtOne && !hasRedirected) {
-      setHasRedirected(true);
-      router.push("/game");
+    let cellClass =
+      "relative flex aspect-square min-h-0 w-full min-w-0 items-center justify-center rounded-md border border-black/10 text-[11px] font-bold tabular-nums shadow-sm active:opacity-90 sm:text-xs md:text-sm ";
+    if (isOccupiedInRoom && !isMine) {
+      cellClass += "bg-[#FF9F43] text-black";
+    } else if (isMine) {
+      cellClass += "bg-green-600 text-white ring-1 ring-black/20";
+    } else {
+      cellClass += "bg-[#EDE7F3] text-gray-900";
     }
-  }, [secondsLeft, roomHeaderData?.status, hasRedirected, router]);
+    if (isDisabled)
+      cellClass += ` cursor-not-allowed${isMine ? "" : " opacity-80"}`;
 
-  // Helper to render a range of boards
-  const renderBoardButtons = (start: number, end: number) => {
     return (
-      <div className="grid grid-cols-10 gap-2 sm:grid-cols-5">
-        {boards.slice(start - 1, end).map((_, index) => {
-          const boardNumber = start + index;
-          const isSelectedByOthers =
-            roomHeaderData?.selected_board_numbers?.includes(boardNumber) &&
-            roomHeaderData?.status !== "playing";
-
-          // Check if selected by current user
-          const isSelectedByMe =
-            userBoard === boardNumber || userBoard2 === boardNumber;
-          const slotNumber =
-            userBoard === boardNumber ? 1 : userBoard2 === boardNumber ? 2 : 0;
-
-          // Disable if last second or already taken
-          const isDisabled = isLastSecond || isSelectedByOthers;
-
-          return (
-            <button
-              key={boardNumber}
-              onClick={() => !isDisabled && handleBoardClick(boardNumber)}
-              disabled={isDisabled}
-              data-testid={`board-btn-${boardNumber}`}
-              className={`relative flex items-center justify-center w-7 h-7 text-lg font-bold rounded-md shadow-md sm:w-8 sm:h-8 transition-all ${
-                isLastSecond && !isSelectedByMe
-                  ? "bg-gray-400 cursor-not-allowed opacity-50"
-                  : isSelectedByOthers
-                  ? "bg-red-500 cursor-not-allowed"
-                  : isSelectedByMe
-                  ? "bg-green-500 text-white"
-                  : "bg-purple-300 hover:bg-purple-200 active:scale-95"
-              }`}
-              title={
-                isLastSecond
-                  ? "Game starting..."
-                  : isSelectedByOthers
-                  ? "Board already taken"
-                  : isSelectedByMe
-                  ? `Board ${slotNumber} — tap to unselect (refund)`
-                  : "Tap to select"
-              }
-            >
-              {boardNumber}
-              {isSelectedByMe && (
-                <span className="absolute -top-1 -right-1 text-xs bg-black bg-opacity-50 rounded-full w-3 h-3 flex items-center justify-center">
-                  {slotNumber}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <button
+        key={boardNumber}
+        type="button"
+        onClick={() => handleBoardClick(boardNumber, isDisabled)}
+        className={cellClass}
+        disabled={isDisabled}
+        data-testid={`board-btn-${boardNumber}`}
+        title={
+          isDisabled
+            ? isLastSecond
+              ? "Game starting…"
+              : isOccupiedInRoom && !isMine
+                ? "Board already taken"
+                : isMine
+                  ? `Board ${slotBadge} — tap to unselect (refund)`
+                  : atMaxSelection
+                    ? "Unselect a board first to pick another"
+                    : "Board already taken"
+            : isMine
+              ? `Board ${slotBadge} — tap to unselect (refund)`
+              : "Tap to select"
+        }
+      >
+        {boardNumber}
+        {isMine && slotBadge > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/55 text-[8px] font-bold text-white sm:h-4 sm:w-4 sm:text-[9px]">
+            {slotBadge}
+          </span>
+        )}
+      </button>
     );
   };
 
-  // My selected boards preview
-  const myBoards = [userBoard, userBoard2].filter(
-    (b) => b !== null
-  ) as number[];
+  const userBalanceDisplay =
+    typeof effectiveWalletBalance === "number" &&
+    Number.isFinite(effectiveWalletBalance)
+      ? effectiveWalletBalance.toLocaleString()
+      : "—";
+  const walletLine =
+    userBalanceDisplay === "—" ? "—" : `${userBalanceDisplay} ETB`;
+  const stakeDisplay =
+    roomHeaderData?.stake_amount != null &&
+    !Number.isNaN(Number(roomHeaderData.stake_amount))
+      ? String(roomHeaderData.stake_amount)
+      : "—";
+  const stakeLine = stakeDisplay === "—" ? "—" : `${stakeDisplay} ETB`;
+  const countdownDisplay = playing
+    ? "0"
+    : secondsLeft > 0
+      ? String(secondsLeft)
+      : "—";
+
+  const previewBoardIds = useMemo(() => {
+    const ids: number[] = [];
+    if (userBoard != null && userBoard >= 1) ids.push(userBoard);
+    if (userBoard2 != null && userBoard2 >= 1) ids.push(userBoard2);
+    return Array.from(new Set(ids));
+  }, [userBoard, userBoard2]);
 
   return (
-    <div className="flex font-mono flex-col items-center min-h-screen bg-purple-400">
-      <div className="mb-4 bg-purple-700 w-full rounded-b-xl sticky top-0 z-10">
-        <div className="flex mt-2 text-black justify-around items-center space-x-4 mb-4">
-          <div className="text-center bg-white rounded-full p-1 px-2">
-            <p className="text-sm">Balance</p>
-            <p className="text-sm font-bold">{balance} ETB</p>
+    <div className="flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-[#C3A9D8] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] font-sans">
+      <header className="mx-auto mb-1 w-full max-w-lg shrink-0">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          <div
+            className="flex min-h-[2.65rem] items-center justify-center rounded-md border border-[#B39BC9] bg-white px-0.5 py-1 shadow-sm sm:min-h-[2.95rem]"
+            title="Seconds until the game starts"
+          >
+            <span className="text-lg font-bold leading-none text-[#EA580C] tabular-nums sm:text-xl">
+              {countdownDisplay}
+            </span>
           </div>
-          <div className="text-center w-24 bg-white rounded-full p-1">
-            <p className="text-sm">Start in</p>
-            <p className="text-sm font-bold">
-              {playing
-                ? "playing..."
-                : roomHeaderData?.status === "about_to_start" && secondsLeft > 0
-                ? `${secondsLeft}s`
-                : "waiting"}
-            </p>
+          <div className="flex min-h-[2.65rem] flex-col items-center justify-center gap-0 rounded-md border border-[#B39BC9] bg-white px-0.5 py-1 text-center shadow-sm sm:min-h-[2.95rem]">
+            <span className="text-[9px] font-semibold leading-tight text-[#312E81] sm:text-[10px]">
+              Wallet
+            </span>
+            <span className="max-w-full truncate text-xs font-bold leading-tight text-[#312E81] tabular-nums sm:text-sm">
+              {walletLine}
+            </span>
+          </div>
+          <div className="flex min-h-[2.65rem] flex-col items-center justify-center gap-0 rounded-md border border-[#B39BC9] bg-white px-0.5 py-1 text-center shadow-sm sm:min-h-[2.95rem]">
+            <span className="text-[9px] font-semibold leading-tight text-[#312E81] sm:text-[10px]">
+              Stake
+            </span>
+            <span className="max-w-full truncate text-xs font-bold leading-tight text-[#312E81] tabular-nums sm:text-sm">
+              {stakeLine}
+            </span>
           </div>
         </div>
-        {/* Balance warning */}
-        {lowBalance && (
-          <div className="text-center text-red-200 text-sm pb-2">
-            Insufficient balance for this room ({balance} ETB; stake{" "}
-            {stakeAmount} ETB per board)
-          </div>
+        {cantPlay && (
+          <p className="mt-1 text-center text-[10px] font-medium text-red-800 sm:text-xs">
+            Insufficient balance for this room stake.
+          </p>
         )}
         {!playing && (userBoard || userBoard2) && (
-          <div className="text-center text-amber-100 text-xs pb-2 px-2">
-            Tap your green board number to unselect (refund). Up to two boards.
-          </div>
+          <p className="mt-1 text-center text-[10px] text-[#312E81]/90 sm:text-xs">
+            Tap a green cartela to unselect (refund). Up to two boards.
+          </p>
         )}
+      </header>
+
+      <div className="mx-auto mt-2 flex h-[50dvh] min-h-0 w-full max-w-lg shrink-0 flex-col px-1">
+        <section
+          className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-white/80 sm:rounded-xl"
+          aria-label="Cartela numbers"
+        >
+          <div className="no-scrollbar h-full min-h-0 overflow-y-auto overscroll-y-contain p-1.5 [-webkit-overflow-scrolling:touch] sm:p-2">
+            <div className="grid grid-cols-9 gap-1 sm:gap-1.5">
+              {boards.map((_, i) => renderCartelaButton(i + 1))}
+            </div>
+          </div>
+        </section>
       </div>
 
-      {/* Scrollable board container */}
-      <div className="flex-1 overflow-y-auto w-full px-4 pb-4">
-        {/* 1–400 board buttons */}
-        {renderBoardButtons(1, 400)}
+      {previewBoardIds.length > 0 && (
+        <div
+          className="mx-auto mt-2 flex w-full max-w-lg shrink-0 flex-wrap items-start justify-center gap-1.5 px-1"
+          aria-label="Selected cartela previews"
+        >
+          {previewBoardIds.map((id) => (
+            <PlayerBoard key={id} userBoard={id} variant="compact" readOnly />
+          ))}
+        </div>
+      )}
 
-        {/* Preview my selected boards */}
-        {myBoards.length > 0 && (
-          <div className="mt-4 flex sm:flex-row gap-4">
-            {myBoards.map((boardNumber) => {
-              const grid = boards[boardNumber - 1];
-              if (!grid) return null;
+      <div className="min-h-0 flex-1" aria-hidden />
 
-              return (
-                <div key={boardNumber} className="flex flex-col items-center">
-                  <p className="mb-1 text-sm font-bold">Board {boardNumber}</p>
-                  <div className="grid grid-cols-5 gap-1">
-                    {grid.flat().map((number, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-center w-5 h-5 text-sm bg-purple-300 rounded-md shadow-md"
-                      >
-                        {number === "FREE" ? "F" : number}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Show 400–600 toggle */}
-        {boards.length > 400 && (
-          <div className="mt-3 w-full flex flex-col items-center gap-2">
-            {showSecondHundred &&
-              renderBoardButtons(401, Math.min(600, boards.length))}
-
-            <button
-              onClick={() => setShowSecondHundred((v) => !v)}
-              className="px-4 py-1 bg-purple-700 text-white rounded-full text-sm shadow"
-            >
-              {showSecondHundred ? "Hide 400–600" : "Show 400–600"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <p className="mt-4 text-sm pb-2">© Sky Bingo 2025</p>
+      <p className="shrink-0 py-1 text-center text-[10px] text-white/85 sm:text-xs">
+        © Sky Bingo 2026
+      </p>
     </div>
   );
 };

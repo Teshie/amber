@@ -14,6 +14,27 @@ import { usePathname } from "next/navigation";
    Types
 ========================= */
 
+/** s1: fixed stake (ETB) for UI and gating so cartela pick works before WS/HTTP room payload arrives. */
+export const S1_FIXED_STAKE_ETB = 10;
+
+/** s1: single-room app — default lobby row id (must match amber room_id for10 ETB). */
+export const S1_DEFAULT_ROOM_ID = "10";
+
+const WS_ROOM_BASE =
+  (typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_WS_ROOM_BASE?.trim()) ||
+  "wss://amber.teshie.dev";
+
+/** Row shape from `/ws/rooms` — used to pre-fill board UI before room WS `room_state`. */
+export type LobbyRoomSnapshot = {
+  room_id: string;
+  stake_amount: number;
+  status: string;
+  number_of_players: number;
+  possible_win_cents: number;
+  start_time?: string;
+};
+
 type NotificationMsg = {
   title: string | null;
   message: string | null;
@@ -108,6 +129,10 @@ interface CounterContextType {
 
   /* ---- WebSocket wiring ---- */
   setSockUrl: (url: string) => void;
+  /** Pre-fill room header from lobby row when entering a room (no wait for first `room_state`). */
+  applyLobbyRoomSnapshot: (item: LobbyRoomSnapshot) => void;
+  /** After a round ends: same as Play on default room — WS + snapshot + cleared win UI (instant /board). */
+  rejoinDefaultRoomBoard: () => void;
   reconnectWebSocket: () => void;
 
   /* ---- Game actions ---- */
@@ -203,7 +228,7 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [userBoard, setUserBoard] = useState<number | null>(null);
   const [userBoard2, setUserBoard2] = useState<number | null>(null);
-  const [stakeAmount, setStakeAmount] = useState<number | undefined>(undefined);
+  const [stakeAmount, setStakeAmount] = useState<number>(S1_FIXED_STAKE_ETB);
 
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
   const [receivedMessages, setReceivedMessages] = useState<any[]>([]);
@@ -214,6 +239,8 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
 
   /* ---- WebSocket plumbing ---- */
   const [sockUrl, setSockUrlState] = useState<string>("");
+  /** Bumped after a round ends so we reconnect even when `sockUrl` string is unchanged (same room). */
+  const [wsConnectNonce, setWsConnectNonce] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Awaiting clear state for both slots
@@ -247,6 +274,22 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch {}
   };
+
+  const applyLobbyRoomSnapshot = useCallback((item: LobbyRoomSnapshot) => {
+    const mapped: GameRoomState = {
+      room_id: item.room_id,
+      stake_amount: S1_FIXED_STAKE_ETB,
+      status: item.status || "idle",
+      start_time: item.start_time ?? null,
+      possible_win: Math.round(Number(item.possible_win_cents) || 0) / 100,
+      number_of_players: Number(item.number_of_players) || 0,
+      selected_board_numbers: [],
+      players: [],
+    };
+    setRoomHeaderData(mapped);
+    setSelectedBoardNumbers([]);
+    setStakeAmount(S1_FIXED_STAKE_ETB);
+  }, []);
   // Clear both boards (server + local) WITHOUT leaving the room
   const resetPlayerBoards = () => {
     const s = wsRef.current;
@@ -281,7 +324,7 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
 
       const mapped: GameRoomState = {
         room_id: dto.room_id,
-        stake_amount: Number(dto.stake_amount) || 0,
+        stake_amount: S1_FIXED_STAKE_ETB,
         status: dto.status || "idle",
         start_time: dto.start_time || null,
         possible_win: Number(dto.possible_win_cents) / 100 || 0,
@@ -322,10 +365,9 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
   /* ---- WS connect/reconnect ---- */
   const connectWebSocket = useCallback(() => {
     const url =
+      (typeof window !== "undefined" ? localStorage.getItem(LSK_WS_URL) : null) ||
       sockUrl ||
-      (typeof window !== "undefined"
-        ? localStorage.getItem(LSK_WS_URL) || ""
-        : "");
+      "";
     if (!url) return;
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -360,7 +402,7 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
 
           const mapped: GameRoomState = {
             room_id: r.room_id || "",
-            stake_amount: Number(r.stake_amount) || 0,
+            stake_amount: S1_FIXED_STAKE_ETB,
             status: r.status || "idle",
             start_time: r.start_time || null,
             possible_win: Math.round(Number(r.possible_win_cents) || 0) / 100,
@@ -638,8 +680,9 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     connectWebSocket();
+    // Intentionally omit connectWebSocket: only reconnect when URL or nonce changes, not on every handler identity change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sockUrl]);
+  }, [sockUrl, wsConnectNonce]);
 
   /* ---- On first mount, try to rehydrate state from DB immediately ---- */
   useEffect(() => {
@@ -740,18 +783,51 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const reconnectWebSocket = () => {
+  const reconnectWebSocket = useCallback(() => {
     const url =
+      (typeof window !== "undefined" ? localStorage.getItem(LSK_WS_URL) : null) ||
       sockUrl ||
-      (typeof window !== "undefined"
-        ? localStorage.getItem(LSK_WS_URL) || ""
-        : "");
+      "";
     if (!url) return;
     try {
       wsRef.current?.close();
     } catch {}
     setTimeout(connectWebSocket, 50);
-  };
+  }, [sockUrl, connectWebSocket]);
+
+  const rejoinDefaultRoomBoard = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("token") || "";
+    const rid = S1_DEFAULT_ROOM_ID;
+    const wsUrl = `${WS_ROOM_BASE}/ws/room/${encodeURIComponent(
+      rid
+    )}?token=${encodeURIComponent(token)}`;
+
+    setSockUrl(wsUrl);
+    applyLobbyRoomSnapshot({
+      room_id: rid,
+      stake_amount: S1_FIXED_STAKE_ETB,
+      status: "pending",
+      number_of_players: 0,
+      possible_win_cents: 0,
+    });
+
+    setWinners([]);
+    setWinner(null);
+    setWinnerBoard(undefined);
+    setWon(false);
+    setFinalGameDetails(undefined);
+    setClaimResult(null);
+    setNotifications({ title: "", message: "" });
+    setCloseMessage(undefined);
+    setCalledNumbers([]);
+    setUserBoard(null);
+    setUserBoard2(null);
+    setBoardNumberState(0);
+    setBoardNumber2State(0);
+
+    setWsConnectNonce((n) => n + 1);
+  }, [applyLobbyRoomSnapshot]);
 
   const reload = () => {
     if (typeof window !== "undefined") {
@@ -793,6 +869,8 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
         decrement: () => setCount((v) => v - 1),
 
         setSockUrl,
+        applyLobbyRoomSnapshot,
+        rejoinDefaultRoomBoard,
         reconnectWebSocket,
         startGame,
         claimBingo,

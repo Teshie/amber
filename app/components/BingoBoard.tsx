@@ -56,7 +56,7 @@ const WS_BASE = "wss://amber.teshie.dev";
 const BingoBoard: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { setSockUrl } = useCounter() as any;
+  const { setSockUrl, applyLobbyRoomSnapshot } = useCounter();
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [me, setMe] = useState<MePayload | null>(null);
@@ -273,6 +273,7 @@ const BingoBoard: React.FC = () => {
                         )}?token=${encodeURIComponent(token)}`;
 
                         setSockUrl(wsUrl);
+                        applyLobbyRoomSnapshot(item);
                         router.push(
                           `/board?room=${encodeURIComponent(item.room_id)}`
                         );
