@@ -150,6 +150,7 @@ interface CounterContextType {
 
   /* ---- Misc ---- */
   reload: () => void;
+  dismissCloseMessage: () => void;
 }
 
 /* =========================
@@ -883,6 +884,7 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
 
         reload,
         resetPlayerBoards, // ✅ add this
+        dismissCloseMessage: () => setCloseMessage(undefined),
       }}
     >
       {children}

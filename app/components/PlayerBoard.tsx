@@ -58,14 +58,14 @@ const PlayerBoard: React.FC<PlayerBoardProps> = ({
   const isCompact = variant === "compact";
 
   const shellClass = isCompact
-    ? "w-full min-w-0 max-w-[5.5rem] rounded-md border border-white/90 bg-white/[0.35] p-0.5 shadow-sm font-sans sm:max-w-[6.5rem]"
+    ? "w-full min-w-0 max-w-[8rem] rounded-lg border border-white/90 bg-white/[0.35] p-1 shadow-sm font-sans sm:max-w-[9.5rem] md:max-w-[10.5rem]"
     : "w-full min-w-0 max-w-full rounded-xl border border-white bg-white/[0.28] p-1.5 shadow-sm backdrop-blur-[2px] font-sans sm:p-2";
 
   const headerRow = (
     <div
       className={
         isCompact
-          ? "mb-px grid grid-cols-5 gap-px"
+          ? "mb-0.5 grid grid-cols-5 gap-0.5"
           : "mb-1 grid grid-cols-5 gap-0.5 sm:mb-1.5 sm:gap-1"
       }
     >
@@ -74,7 +74,7 @@ const PlayerBoard: React.FC<PlayerBoardProps> = ({
           key={ch}
           className={`text-center font-bold leading-none text-white ${
             isCompact
-              ? "rounded-[2px] py-px text-[7px] sm:text-[8px]"
+              ? "rounded-sm py-0.5 text-[9px] sm:text-[10px]"
               : "rounded-sm py-0.5 text-sm sm:rounded-md sm:py-1 sm:text-base"
           } ${HEADER_STYLES[i]}`}
         >
@@ -91,14 +91,14 @@ const PlayerBoard: React.FC<PlayerBoardProps> = ({
         <div
           className={
             isCompact
-              ? "flex min-h-[2.25rem] items-center justify-center rounded border border-white/50 bg-white/15 px-0.5 py-1"
+              ? "flex min-h-[3.25rem] items-center justify-center rounded-md border border-white/50 bg-white/15 px-1 py-1.5"
               : "flex min-h-[140px] items-center justify-center rounded-lg border border-white/50 bg-white/20 px-2 py-4 sm:min-h-[168px] sm:rounded-xl sm:py-6"
           }
         >
           <p
             className={
               isCompact
-                ? "text-center text-[7px] font-medium leading-snug text-[#312E81] sm:text-[8px]"
+                ? "text-center text-[9px] font-medium leading-snug text-[#312E81] sm:text-[10px]"
                 : "text-center text-base font-medium leading-snug text-[#312E81] sm:text-lg"
             }
           >
@@ -112,7 +112,7 @@ const PlayerBoard: React.FC<PlayerBoardProps> = ({
   const numbers: (number | string)[][] = boards[userBoard - 1] || [];
 
   const cellBase = isCompact
-    ? "flex aspect-square w-full min-h-0 min-w-0 max-w-full items-center justify-center rounded-[2px] border py-0 text-center text-[7px] font-bold tabular-nums leading-none sm:text-[8px]"
+    ? "flex aspect-square w-full min-h-0 min-w-0 max-w-full items-center justify-center rounded-sm border py-px text-center text-[9px] font-bold tabular-nums leading-none sm:text-[10px] md:text-[11px]"
     : "flex aspect-[5/4] w-full min-h-0 min-w-0 max-w-full items-center justify-center rounded-md border py-px text-center text-sm font-bold tabular-nums leading-tight sm:rounded-lg sm:text-lg md:text-xl";
 
   const lastCalled =
@@ -142,7 +142,7 @@ const PlayerBoard: React.FC<PlayerBoardProps> = ({
     }
   };
 
-  const gridGap = isCompact ? "gap-px" : "gap-0.5 sm:gap-1";
+  const gridGap = isCompact ? "gap-0.5" : "gap-0.5 sm:gap-1";
 
   return (
     <div
@@ -151,7 +151,7 @@ const PlayerBoard: React.FC<PlayerBoardProps> = ({
       <p
         className={
           isCompact
-            ? "mb-px text-center text-[7px] font-semibold leading-none text-[#312E81]/90 sm:text-[8px]"
+            ? "mb-0.5 text-center text-[10px] font-semibold leading-none text-[#312E81]/90 sm:text-[11px]"
             : "mb-1 text-center text-sm font-medium leading-snug text-gray-500 sm:mb-1.5 sm:text-base"
         }
       >
@@ -175,7 +175,7 @@ const PlayerBoard: React.FC<PlayerBoardProps> = ({
                 aria-label="Free space"
               >
                 {isCompact ? (
-                  <span className="text-[6px] font-bold text-white sm:text-[7px]" aria-hidden>
+                  <span className="text-[10px] font-bold text-white sm:text-[11px]" aria-hidden>
                     ★
                   </span>
                 ) : (

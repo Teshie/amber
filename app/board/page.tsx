@@ -39,6 +39,8 @@ const BingoBoard: React.FC = () => {
     userBoard,
     userBoard2,
     rejoinDefaultRoomBoard,
+    closeMessege,
+    dismissCloseMessage,
   } = useCounter();
 
   const playing = roomHeaderData?.status === "playing";
@@ -147,6 +149,18 @@ const BingoBoard: React.FC = () => {
     router.replace(`/board?room=${encodeURIComponent(S1_DEFAULT_ROOM_ID)}`);
   }, [winner, rejoinDefaultRoomBoard, router]);
 
+  useEffect(() => {
+    const err = closeMessege?.error_messege?.trim();
+    if (!err) return;
+    const low = err.toLowerCase();
+    const isBalance = low.includes("insufficient");
+    const isTaken = low.includes("already taken");
+    if (isBalance || isTaken) {
+      toast.error(err);
+    }
+    dismissCloseMessage();
+  }, [closeMessege, dismissCloseMessage]);
+
   // Tap your number = unselect (WS clear → server refund before round). New picks fill slot 1, then slot 2.
   const handleBoardClick = (boardNumber: number, isDisabled: boolean) => {
     if (isDisabled) return;
@@ -156,7 +170,6 @@ const BingoBoard: React.FC = () => {
       return;
     }
     if (playing) {
-      toast.error("Cannot change boards during play.");
       return;
     }
 
@@ -171,13 +184,11 @@ const BingoBoard: React.FC = () => {
 
     if (userBoard === boardNumber) {
       clearBoard(1);
-      toast.success("Board 1 removed — stake refunded");
       refreshMeSoon();
       return;
     }
     if (userBoard2 === boardNumber) {
       clearBoard(2);
-      toast.success("Board 2 removed — stake refunded");
       refreshMeSoon();
       return;
     }
@@ -218,14 +229,9 @@ const BingoBoard: React.FC = () => {
         return;
       }
       setPlayerBoard(2, boardNumber);
-      toast.success(`Board ${boardNumber} selected as 2nd board`);
       refreshMeSoon();
       return;
     }
-
-    toast.error(
-      "Both boards are full. Tap a green number to unselect it first, then pick a new board."
-    );
   };
 
   const renderCartelaButton = (boardNumber: number) => {
@@ -276,14 +282,8 @@ const BingoBoard: React.FC = () => {
               ? "Game starting…"
               : isOccupiedInRoom && !isMine
                 ? "Board already taken"
-                : isMine
-                  ? `Board ${slotBadge} — tap to unselect (refund)`
-                  : atMaxSelection
-                    ? "Unselect a board first to pick another"
-                    : "Board already taken"
-            : isMine
-              ? `Board ${slotBadge} — tap to unselect (refund)`
-              : "Tap to select"
+                : ""
+            : ""
         }
       >
         {boardNumber}
@@ -351,16 +351,6 @@ const BingoBoard: React.FC = () => {
             </span>
           </div>
         </div>
-        {cantPlay && (
-          <p className="mt-1 text-center text-[10px] font-medium text-red-800 sm:text-xs">
-            Insufficient balance for this room stake.
-          </p>
-        )}
-        {!playing && (userBoard || userBoard2) && (
-          <p className="mt-1 text-center text-[10px] text-[#312E81]/90 sm:text-xs">
-            Tap a green cartela to unselect (refund). Up to two boards.
-          </p>
-        )}
       </header>
 
       <div className="mx-auto mt-2 flex h-[50dvh] min-h-0 w-full max-w-lg shrink-0 flex-col px-1">
@@ -378,7 +368,7 @@ const BingoBoard: React.FC = () => {
 
       {previewBoardIds.length > 0 && (
         <div
-          className="mx-auto mt-2 flex w-full max-w-lg shrink-0 flex-wrap items-start justify-center gap-1.5 px-1"
+          className="mx-auto mt-2 flex w-full max-w-lg shrink-0 flex-wrap items-start justify-center gap-2.5 px-1 sm:gap-3"
           aria-label="Selected cartela previews"
         >
           {previewBoardIds.map((id) => (
