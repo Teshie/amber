@@ -26,6 +26,10 @@ function parseNumberLoose(v: unknown): number {
 const BingoBoard: React.FC = () => {
   const [showSecondHundred, setShowSecondHundred] = useState(false);
   const [me, setMe] = useState<MePayload | null>(null);
+  /** Next grid pick goes to slot 2 (extra stake). Only when slot 2 is empty. */
+  const [addingSecondBoard, setAddingSecondBoard] = useState(false);
+  /** After tapping your own board while both slots are full, next pick replaces this slot. */
+  const [pendingSwapSlot, setPendingSwapSlot] = useState<1 | 2 | null>(null);
   const router = useRouter();
 
   const { winner, roomHeaderData, setPlayerBoard, userBoard, userBoard2 } =
@@ -55,52 +59,100 @@ const BingoBoard: React.FC = () => {
     return a + b;
   }, [me]);
 
-  const lowBalance = stakeAmount > balance;
+  const lowBalance = stakeAmount > 0 && balance < stakeAmount;
+  // Second board only debits one more stake (first is already paid). Do not require 2× stake in wallet.
+  const lowBalanceForSecond =
+    stakeAmount > 0 && balance < stakeAmount && userBoard && !userBoard2;
 
-  // Handle board click - immediate selection and send to backend
+  useEffect(() => {
+    if (userBoard2 != null) setAddingSecondBoard(false);
+  }, [userBoard2]);
+
+  useEffect(() => {
+    if (pendingSwapSlot === 1 && userBoard == null) setPendingSwapSlot(null);
+    if (pendingSwapSlot === 2 && userBoard2 == null) setPendingSwapSlot(null);
+  }, [userBoard, userBoard2, pendingSwapSlot]);
+
+  // Handle board click - immediate selection and send to backend (WS updates everyone in real time)
   const handleBoardClick = (boardNumber: number) => {
-    // Validation: Check balance
-    if (lowBalance) {
-      toast.error(
-        `Insufficient balance (${balance} ETB < ${stakeAmount} ETB stake)`
-      );
-      return;
-    }
-
-    // Validation: Check if board already taken by others
-    const isSelectedByOthers =
-      roomHeaderData?.selected_board_numbers?.includes(boardNumber);
-    if (isSelectedByOthers) {
-      toast.error("Board already selected by another player");
-      return;
-    }
-
     // Validation: Check if game is playing - redirect to game if already playing
     if (playing) {
       router.push("/game");
       return;
     }
 
-    // Determine which slot to use (no immediate redirect - wait for countdown)
-    if (userBoard === null || userBoard === boardNumber) {
-      if (userBoard === boardNumber) {
-        toast.success(`Board ${boardNumber} already selected`);
+    const isMine = userBoard === boardNumber || userBoard2 === boardNumber;
+    const isSelectedByOthers =
+      roomHeaderData?.selected_board_numbers?.includes(boardNumber) && !isMine;
+
+    if (isSelectedByOthers) {
+      toast.error("Board already selected by another player");
+      return;
+    }
+
+    // Tap your own board (when you have two) → next pick replaces that slot
+    if (userBoard === boardNumber && userBoard2 != null) {
+      setPendingSwapSlot(1);
+      setAddingSecondBoard(false);
+      toast.success("Pick another number to replace your first board");
+      return;
+    }
+    if (userBoard2 === boardNumber) {
+      setPendingSwapSlot(2);
+      setAddingSecondBoard(false);
+      toast.success("Pick another number to replace your second board");
+      return;
+    }
+    if (userBoard === boardNumber && userBoard2 == null) {
+      toast.success(`Board ${boardNumber} already selected`);
+      return;
+    }
+
+    // Replacing a slot after tapping your own board (both slots were full)
+    if (pendingSwapSlot != null) {
+      const slot = pendingSwapSlot;
+      setPlayerBoard(slot, boardNumber);
+      setPendingSwapSlot(null);
+      toast.success(`Board ${boardNumber} — slot ${slot} updated`);
+      return;
+    }
+
+    const willUseSecondSlot =
+      addingSecondBoard && userBoard != null && userBoard2 == null;
+
+    if (userBoard === null) {
+      if (stakeAmount > 0 && balance < stakeAmount) {
+        toast.error(
+          `Insufficient balance (${balance} ETB; need ${stakeAmount} ETB)`
+        );
         return;
       }
       setPlayerBoard(1, boardNumber);
-      // toast.success(
-      //   `Board ${boardNumber} selected! Waiting for game to start...`
-      // );
-    } else if (userBoard2 === null || userBoard2 === boardNumber) {
-      if (userBoard2 === boardNumber) {
-        toast.success(`Board ${boardNumber} already selected`);
+      setAddingSecondBoard(false);
+      return;
+    }
+
+    if (willUseSecondSlot) {
+      if (stakeAmount > 0 && balance < stakeAmount) {
+        toast.error(
+          `Insufficient balance (${balance} ETB; need ${stakeAmount} ETB for 2nd board`
+        );
         return;
       }
       setPlayerBoard(2, boardNumber);
-      toast.success(`Board ${boardNumber} selected as 2nd board!`);
-    } else {
-      toast.error("You already have 2 boards selected");
+      setAddingSecondBoard(false);
+      toast.success(`Board ${boardNumber} added as 2nd board`);
+      return;
     }
+
+    if (userBoard2 === null) {
+      // One board only: a different free number replaces board 1 (fixes “change my board”)
+      setPlayerBoard(1, boardNumber);
+      toast.success(`Switched to board ${boardNumber}`);
+      return;
+    }
+
+    toast.error('Tap one of your green boards first, then pick a new number to swap it.');
   };
 
   // Reload when a winner is announced
@@ -238,7 +290,18 @@ const BingoBoard: React.FC = () => {
         {/* Balance warning */}
         {lowBalance && (
           <div className="text-center text-red-200 text-sm pb-2">
-            Insufficient balance ({balance} ETB)
+            Insufficient balance for this room ({balance} ETB; stake{" "}
+            {stakeAmount} ETB per board)
+          </div>
+        )}
+        {addingSecondBoard && userBoard && !userBoard2 && !playing && (
+          <div className="text-center text-amber-200 text-sm pb-2 font-semibold">
+            Pick a free board — it will be your 2nd card (+{stakeAmount} ETB).
+          </div>
+        )}
+        {pendingSwapSlot && userBoard && userBoard2 && !playing && (
+          <div className="text-center text-amber-200 text-sm pb-2 font-semibold">
+            Swap mode: choose a new board for slot {pendingSwapSlot}.
           </div>
         )}
       </div>
@@ -271,6 +334,37 @@ const BingoBoard: React.FC = () => {
                 </div>
               );
             })}
+            {userBoard && !userBoard2 && !playing && (
+              <div className="flex flex-col items-center gap-1 mt-2 w-full max-w-xs">
+                <button
+                  type="button"
+                  disabled={lowBalanceForSecond}
+                  onClick={() => {
+                    if (lowBalanceForSecond) {
+                      toast.error(
+                        `Need at least ${stakeAmount} ETB for another board`
+                      );
+                      return;
+                    }
+                    setAddingSecondBoard((v) => !v);
+                    setPendingSwapSlot(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold shadow ${
+                    addingSecondBoard
+                      ? "bg-amber-400 text-black"
+                      : "bg-white text-purple-900"
+                  } ${
+                    lowBalanceForSecond
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  {addingSecondBoard
+                    ? "Cancel 2nd board"
+                    : `Add 2nd board (+${stakeAmount} ETB)`}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
