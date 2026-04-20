@@ -48,3 +48,12 @@ Simplify the bingo system with rooms - make only a 10 ETB room so when user land
 ## Next Tasks
 - Test with valid production tokens
 - Monitor user experience with simplified flow
+
+**Date: 2026-01 (Update: Unified single-page view, no router navigation)**
+- Added `currentView: 'board' | 'game'` + `setCurrentView` in `/app/app/store/store.tsx`. `rejoinDefaultRoomBoard` now also resets the view to `'board'`.
+- Extracted board-selection UI into `/app/app/components/BoardSelectionView.tsx` (calls `setCurrentView('game')` when countdown reaches 1s or status becomes `playing`).
+- Extracted game UI into `/app/app/components/GameView.tsx` (on 5s winner countdown end, calls `rejoinDefaultRoomBoard()` + `setCurrentView('board')` instead of `router.push`).
+- Added `/app/app/components/GameContainer.tsx` that renders either view based on `currentView`.
+- Rewrote `/app/app/page.tsx`, `/app/app/board/page.tsx`, `/app/app/game/page.tsx`, `/app/app/login/page.tsx`, `/app/app/login/[token]/page.tsx`, `/app/app/board/[token]/page.tsx` to render `<GameContainer />` directly.
+- Removed the `<Suspense fallback="Loading...">` flash from the home page.
+- Result: the board → countdown → game → winner countdown → board loop now happens without any URL navigation or page reload, eliminating the loading delay.

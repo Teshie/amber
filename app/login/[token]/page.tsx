@@ -1,8 +1,8 @@
-'use client'
+"use client";
 import React, { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useCounter } from "@/app/store/store";
-import BoardSelection from "@/app/board/page";
+import GameContainer from "@/app/components/GameContainer";
 
 const WS_BASE = "wss://amber.teshie.dev";
 const ROOM_10_ID = "10"; // Room 10 ETB
@@ -30,7 +30,7 @@ const MainGate = () => {
     }
   }, [pathname, setSockUrl]);
 
-  return <BoardSelection />;
+  return <GameContainer />;
 };
 
 export default MainGate;

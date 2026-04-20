@@ -1,13 +1,9 @@
-'use client'
+"use client";
 import React from "react";
-import BingoBoard from "@/app/board/page";
+import GameContainer from "@/app/components/GameContainer";
 
 const MainGate = () => {
-  return (
-    <div>
-      <BingoBoard />
-    </div>
-  );
+  return <GameContainer />;
 };
 
 export default MainGate;

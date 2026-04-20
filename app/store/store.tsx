@@ -148,6 +148,10 @@ interface CounterContextType {
   clearBoard: (slot: 1 | 2) => void;
   resetPlayerBoards: () => void; // ✅ add this
 
+  /* ---- View switching (single-page, no router navigation) ---- */
+  currentView: "board" | "game";
+  setCurrentView: (view: "board" | "game") => void;
+
   /* ---- Misc ---- */
   reload: () => void;
   dismissCloseMessage: () => void;
@@ -233,6 +237,14 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
 
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
   const [receivedMessages, setReceivedMessages] = useState<any[]>([]);
+
+  /* ---- View switching (single-page, no router navigation) ---- */
+  const [currentView, setCurrentViewState] = useState<"board" | "game">(
+    "board"
+  );
+  const setCurrentView = useCallback((view: "board" | "game") => {
+    setCurrentViewState(view);
+  }, []);
 
   /* ---- Board selection (local “pending” numbers) ---- */
   const [boardNumber, setBoardNumberState] = useState<number>(0);
@@ -828,6 +840,7 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
     setBoardNumber2State(0);
 
     setWsConnectNonce((n) => n + 1);
+    setCurrentViewState("board");
   }, [applyLobbyRoomSnapshot]);
 
   const reload = () => {
@@ -885,6 +898,8 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
         reload,
         resetPlayerBoards, // ✅ add this
         dismissCloseMessage: () => setCloseMessage(undefined),
+        currentView,
+        setCurrentView,
       }}
     >
       {children}
